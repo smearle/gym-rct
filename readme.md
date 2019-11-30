@@ -1,3 +1,7 @@
+# gym-rct
+
+An effort to wrap the OpenRCT2 source code in SWIG/Cython, and build an AI learning environment around it. W.I.P.
+
 # OpenRCT2
 An open-source re-implementation of RollerCoaster Tycoon 2. A construction and management simulation video game that simulates amusement park management.
 
