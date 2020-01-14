@@ -55,15 +55,13 @@ private:
     int32_t _wallType{ -1 };
     CoordsXYZ _loc;
     Direction _edge{ INVALID_DIRECTION };
-    int32_t _primaryColour;
-    int32_t _secondaryColour;
-    int32_t _tertiaryColour;
+    int32_t _primaryColour{ COLOUR_BLACK };
+    int32_t _secondaryColour{ COLOUR_BLACK };
+    int32_t _tertiaryColour{ COLOUR_BLACK };
     BannerIndex _bannerId{ BANNER_INDEX_NULL };
 
 public:
-    WallPlaceAction()
-    {
-    }
+    WallPlaceAction() = default;
 
     WallPlaceAction(
         int32_t wallType, CoordsXYZ loc, uint8_t edge, int32_t primaryColour, int32_t secondaryColour, int32_t tertiaryColour)
@@ -103,7 +101,7 @@ public:
         res->ErrorTitle = STR_CANT_BUILD_PARK_ENTRANCE_HERE;
         res->Position = _loc;
 
-        res->ExpenditureType = RCT_EXPENDITURE_TYPE_LANDSCAPING;
+        res->Expenditure = ExpenditureType::Landscaping;
         res->Position.x += 16;
         res->Position.y += 16;
 
@@ -148,7 +146,7 @@ public:
                 log_error("Surface element not found at %d, %d.", _loc.x, _loc.y);
                 return std::make_unique<WallPlaceActionResult>(GA_ERROR::INVALID_PARAMETERS);
             }
-            targetHeight = surfaceElement->base_height * 8;
+            targetHeight = surfaceElement->GetBaseZ();
 
             uint8_t slope = surfaceElement->GetSlope();
             edgeSlope = EdgeSlopes[slope][_edge & 3];
@@ -176,7 +174,7 @@ public:
             }
         }
 
-        if (targetHeight / 8 < surfaceElement->base_height && !gCheatsDisableClearanceChecks)
+        if (targetHeight < surfaceElement->GetBaseZ() && !gCheatsDisableClearanceChecks)
         {
             return std::make_unique<WallPlaceActionResult>(GA_ERROR::DISALLOWED, STR_CAN_ONLY_BUILD_THIS_ABOVE_GROUND);
         }
@@ -303,7 +301,7 @@ public:
         res->ErrorTitle = STR_CANT_BUILD_PARK_ENTRANCE_HERE;
         res->Position = _loc;
 
-        res->ExpenditureType = RCT_EXPENDITURE_TYPE_LANDSCAPING;
+        res->Expenditure = ExpenditureType::Landscaping;
         res->Position.x += 16;
         res->Position.y += 16;
 
@@ -322,7 +320,7 @@ public:
                 log_error("Surface element not found at %d, %d.", _loc.x, _loc.y);
                 return std::make_unique<WallPlaceActionResult>(GA_ERROR::INVALID_PARAMETERS);
             }
-            targetHeight = surfaceElement->base_height * 8;
+            targetHeight = surfaceElement->GetBaseZ();
 
             uint8_t slope = surfaceElement->GetSlope();
             edgeSlope = EdgeSlopes[slope][_edge & 3];
@@ -397,7 +395,7 @@ public:
         TileElement* tileElement = tile_element_insert({ _loc.x / 32, _loc.y / 32, targetHeight / 8 }, 0b0000);
         assert(tileElement != nullptr);
 
-        map_animation_create(MAP_ANIMATION_TYPE_WALL, _loc.x, _loc.y, targetHeight / 8);
+        map_animation_create(MAP_ANIMATION_TYPE_WALL, CoordsXYZ{ _loc, targetHeight });
 
         tileElement->SetType(TILE_ELEMENT_TYPE_WALL);
         WallElement* wallElement = tileElement->AsWall();
@@ -431,7 +429,7 @@ public:
         }
 
         res->tileElement = tileElement;
-        map_invalidate_tile_zoom1(_loc.x, _loc.y, wallElement->base_height * 8, wallElement->base_height * 8 + 72);
+        map_invalidate_tile_zoom1({ _loc, wallElement->GetBaseZ(), wallElement->GetBaseZ() + 72 });
 
         res->Cost = wallEntry->wall.price;
         return res;
@@ -619,7 +617,7 @@ private:
             return false;
         }
 
-        TileElement* tileElement = map_get_first_element_at(_loc.x / 32, _loc.y / 32);
+        TileElement* tileElement = map_get_first_element_at(_loc);
         do
         {
             if (tileElement == nullptr)

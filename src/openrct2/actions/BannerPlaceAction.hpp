@@ -51,7 +51,7 @@ public:
         res->Position.x = _loc.x + 16;
         res->Position.y = _loc.y + 16;
         res->Position.z = _loc.z;
-        res->ExpenditureType = RCT_EXPENDITURE_TYPE_LANDSCAPING;
+        res->Expenditure = ExpenditureType::Landscaping;
         res->ErrorTitle = STR_CANT_POSITION_THIS_HERE;
 
         if (!map_check_free_elements_and_reorganise(1))
@@ -77,8 +77,8 @@ public:
             return MakeResult(GA_ERROR::NOT_OWNED, STR_CANT_POSITION_THIS_HERE, STR_LAND_NOT_OWNED_BY_PARK);
         }
 
-        uint8_t baseHeight = _loc.z / 8 + 2;
-        BannerElement* existingBannerElement = map_get_banner_element_at(_loc.x / 32, _loc.y / 32, baseHeight, _loc.direction);
+        auto baseHeight = _loc.z + PATH_HEIGHT_STEP;
+        BannerElement* existingBannerElement = map_get_banner_element_at({ _loc.x, _loc.y, baseHeight }, _loc.direction);
         if (existingBannerElement != nullptr)
         {
             return MakeResult(GA_ERROR::ITEM_ALREADY_PLACED, STR_CANT_POSITION_THIS_HERE, STR_BANNER_SIGN_IN_THE_WAY);
@@ -113,7 +113,7 @@ public:
         res->Position.x = _loc.x + 16;
         res->Position.y = _loc.y + 16;
         res->Position.z = _loc.z;
-        res->ExpenditureType = RCT_EXPENDITURE_TYPE_LANDSCAPING;
+        res->Expenditure = ExpenditureType::Landscaping;
         res->ErrorTitle = STR_CANT_POSITION_THIS_HERE;
 
         if (!map_check_free_elements_and_reorganise(1))
@@ -157,8 +157,8 @@ public:
         {
             bannerElement->SetGhost(true);
         }
-        map_invalidate_tile_full(_loc.x, _loc.y);
-        map_animation_create(MAP_ANIMATION_TYPE_BANNER, _loc.x, _loc.y, bannerElement->base_height);
+        map_invalidate_tile_full(_loc);
+        map_animation_create(MAP_ANIMATION_TYPE_BANNER, CoordsXYZ{ _loc, bannerElement->GetBaseZ() });
 
         rct_scenery_entry* bannerEntry = get_banner_entry(_bannerType);
         if (bannerEntry == nullptr)
@@ -173,7 +173,7 @@ public:
 private:
     PathElement* GetValidPathElement() const
     {
-        TileElement* tileElement = map_get_first_element_at(_loc.x / 32, _loc.y / 32);
+        TileElement* tileElement = map_get_first_element_at(_loc);
         do
         {
             if (tileElement == nullptr)
@@ -184,7 +184,7 @@ private:
 
             auto pathElement = tileElement->AsPath();
 
-            if (pathElement->base_height != _loc.z / 8 && pathElement->base_height != _loc.z / 8 - 2)
+            if (pathElement->GetBaseZ() != _loc.z && pathElement->GetBaseZ() != _loc.z - PATH_HEIGHT_STEP)
                 continue;
 
             if (!(pathElement->GetEdges() & (1 << _loc.direction)))

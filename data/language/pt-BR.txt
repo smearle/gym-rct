@@ -2774,7 +2774,6 @@ STR_5410    :Editar
 STR_5411    :Recarregar
 STR_5412    :Ir para
 STR_5413    :Carregar
-STR_5414    :Carregar{MOVE_X}{87}Six Flags Magic Mountain.SC6
 STR_5415    :Carregar{MOVE_X}{87}{STRING}
 STR_5416    :Carregar{MOVE_X}{87}Jogo salvo não selecionado
 STR_5417    :Localização
@@ -2908,7 +2907,7 @@ STR_5547    :{SMALLFONT}{BLACK}Rosa claro
 STR_5548    :Exibir todos os modos operacionais
 STR_5549    :Ano/Mês/Dia
 STR_5550    :{POP16}{POP16}Ano {COMMA16}, {PUSH16}{PUSH16}{MONTH} {PUSH16}{PUSH16}{STRINGID}
-STR_5551    :Ano/Mês/Dia
+STR_5551    :Ano/Dia/Mês
 STR_5552    :{POP16}{POP16}Ano {COMMA16}, {PUSH16}{PUSH16}{PUSH16}{STRINGID} {MONTH}
 STR_5553    :Pausar jogo quando a Steam estiver sobrepondo
 STR_5554    :{SMALLFONT}{BLACK}Habilitar ferramenta de montanha

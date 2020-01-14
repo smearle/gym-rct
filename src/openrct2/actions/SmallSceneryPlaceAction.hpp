@@ -156,8 +156,8 @@ public:
         }
         else
         {
-            x2 += ScenerySubTileOffsets[quadrant & 3].x - 1;
-            y2 += ScenerySubTileOffsets[quadrant & 3].y - 1;
+            x2 += SceneryQuadrantOffsets[quadrant & 3].x - 1;
+            y2 += SceneryQuadrantOffsets[quadrant & 3].y - 1;
         }
         landHeight = tile_element_height({ x2, y2 });
         waterHeight = tile_element_water_height({ x2, y2 });
@@ -227,7 +227,7 @@ public:
             {
                 if (surfaceElement != nullptr)
                 {
-                    if (surfaceElement->GetWaterHeight() || (surfaceElement->base_height * 8) != targetHeight)
+                    if (surfaceElement->GetWaterHeight() || (surfaceElement->GetBaseZ()) != targetHeight)
                     {
                         return std::make_unique<SmallSceneryPlaceActionResult>(GA_ERROR::DISALLOWED, STR_LEVEL_LAND_REQUIRED);
                     }
@@ -280,7 +280,7 @@ public:
         money32 clearCost = 0;
 
         if (!map_can_construct_with_clear_at(
-                _loc.x, _loc.y, zLow, zHigh, &map_place_scenery_clear_func, quarterTile, GetFlags(), &clearCost,
+                { _loc, zLow * 8, zHigh * 8 }, &map_place_scenery_clear_func, quarterTile, GetFlags(), &clearCost,
                 CREATE_CROSSING_MODE_NONE))
         {
             return std::make_unique<SmallSceneryPlaceActionResult>(
@@ -289,7 +289,7 @@ public:
 
         res->GroundFlags = gMapGroundFlags & (ELEMENT_IS_ABOVE_GROUND | ELEMENT_IS_UNDERGROUND);
 
-        res->ExpenditureType = RCT_EXPENDITURE_TYPE_LANDSCAPING;
+        res->Expenditure = ExpenditureType::Landscaping;
         res->Cost = (sceneryEntry->small_scenery.price * 10) + clearCost;
 
         return res;
@@ -349,8 +349,8 @@ public:
         }
         else
         {
-            x2 += ScenerySubTileOffsets[quadrant & 3].x - 1;
-            y2 += ScenerySubTileOffsets[quadrant & 3].y - 1;
+            x2 += SceneryQuadrantOffsets[quadrant & 3].x - 1;
+            y2 += SceneryQuadrantOffsets[quadrant & 3].y - 1;
         }
         landHeight = tile_element_height({ x2, y2 });
         waterHeight = tile_element_water_height({ x2, y2 });
@@ -370,10 +370,10 @@ public:
 
         if (!(GetFlags() & GAME_COMMAND_FLAG_GHOST))
         {
-            footpath_remove_litter(_loc.x, _loc.y, targetHeight);
+            footpath_remove_litter({ _loc, targetHeight });
             if (!gCheatsDisableClearanceChecks && (scenery_small_entry_has_flag(sceneryEntry, SMALL_SCENERY_FLAG_NO_WALLS)))
             {
-                wall_remove_at(_loc.x, _loc.y, targetHeight, targetHeight + sceneryEntry->small_scenery.height);
+                wall_remove_at({ _loc, targetHeight, targetHeight + sceneryEntry->small_scenery.height });
             }
         }
 
@@ -418,7 +418,7 @@ public:
         money32 clearCost = 0;
 
         if (!map_can_construct_with_clear_at(
-                _loc.x, _loc.y, zLow, zHigh, &map_place_scenery_clear_func, quarterTile, GetFlags() | GAME_COMMAND_FLAG_APPLY,
+                { _loc, zLow * 8, zHigh * 8 }, &map_place_scenery_clear_func, quarterTile, GetFlags() | GAME_COMMAND_FLAG_APPLY,
                 &clearCost, CREATE_CROSSING_MODE_NONE))
         {
             return std::make_unique<SmallSceneryPlaceActionResult>(
@@ -427,7 +427,7 @@ public:
 
         res->GroundFlags = gMapGroundFlags & (ELEMENT_IS_ABOVE_GROUND | ELEMENT_IS_UNDERGROUND);
 
-        res->ExpenditureType = RCT_EXPENDITURE_TYPE_LANDSCAPING;
+        res->Expenditure = ExpenditureType::Landscaping;
         res->Cost = (sceneryEntry->small_scenery.price * 10) + clearCost;
 
         TileElement* newElement = tile_element_insert({ _loc.x / 32, _loc.y / 32, zLow }, quarterTile.GetBaseQuarterOccupied());
@@ -441,7 +441,7 @@ public:
         sceneryElement->SetAge(0);
         sceneryElement->SetPrimaryColour(_primaryColour);
         sceneryElement->SetSecondaryColour(_secondaryColour);
-        sceneryElement->clearance_height = sceneryElement->base_height + ((sceneryEntry->small_scenery.height + 7) / 8);
+        sceneryElement->SetClearanceZ(sceneryElement->GetBaseZ() + sceneryEntry->small_scenery.height + 7);
 
         if (supportsRequired)
         {
@@ -453,10 +453,10 @@ public:
             sceneryElement->SetGhost(true);
         }
 
-        map_invalidate_tile_full(_loc.x, _loc.y);
+        map_invalidate_tile_full(_loc);
         if (scenery_small_entry_has_flag(sceneryEntry, SMALL_SCENERY_FLAG_ANIMATED))
         {
-            map_animation_create(MAP_ANIMATION_TYPE_SMALL_SCENERY, _loc.x, _loc.y, sceneryElement->base_height);
+            map_animation_create(MAP_ANIMATION_TYPE_SMALL_SCENERY, CoordsXYZ{ _loc, sceneryElement->GetBaseZ() });
         }
 
         return res;

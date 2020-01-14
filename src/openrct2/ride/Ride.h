@@ -31,7 +31,7 @@ struct Staff;
 // The max number of different types of vehicle.
 // Examples of vehicles here are the locomotive, tender and carriage of the Miniature Railway.
 #define MAX_VEHICLES_PER_RIDE_ENTRY 4
-#define MAX_VEHICLES_PER_RIDE 32
+#define MAX_VEHICLES_PER_RIDE 31
 #define RIDE_ENTRY_INDEX_NULL 255
 #define NUM_COLOUR_SCHEMES 4
 #define MAX_CATEGORIES_PER_RIDE 2
@@ -162,7 +162,7 @@ struct rct_ride_entry
 
 struct RideStation
 {
-    LocationXY8 Start;
+    TileCoordsXY Start;
     uint8_t Height;
     uint8_t Length;
     uint8_t Depart;
@@ -176,6 +176,10 @@ struct RideStation
     uint16_t LastPeepInQueue;
 
     static constexpr uint8_t NO_TRAIN = std::numeric_limits<uint8_t>::max();
+
+    int32_t GetBaseZ() const;
+    void SetBaseZ(int32_t newZ);
+    CoordsXYZ GetStart() const;
 };
 
 struct RideMeasurement
@@ -223,8 +227,8 @@ struct Ride
     uint8_t status;
     std::string custom_name;
     uint16_t default_name_number;
-    LocationXY8 overall_view;
-    uint16_t vehicles[MAX_VEHICLES_PER_RIDE]; // Points to the first car in the train
+    TileCoordsXY overall_view;
+    uint16_t vehicles[MAX_VEHICLES_PER_RIDE + 1]; // Points to the first car in the train
     uint8_t depart_flags;
     uint8_t num_stations;
     uint8_t num_vehicles;
@@ -246,7 +250,7 @@ struct Ride
     };
 
     uint8_t boat_hire_return_direction;
-    LocationXY8 boat_hire_return_position;
+    TileCoordsXY boat_hire_return_position;
     // bits 0 through 4 are the number of helix sections
     // bit 5: spinning tunnel, water splash, or rapids
     // bit 6: log reverser, waterfall
@@ -264,9 +268,9 @@ struct Ride
     fixed16_2dp previous_vertical_g;
     fixed16_2dp previous_lateral_g;
     uint32_t testing_flags;
-    // x y map location of the current track piece during a test
+    // x y z map location of the current track piece during a test
     // this is to prevent counting special tracks multiple times
-    LocationXY8 cur_test_track_location;
+    TileCoordsXYZ CurTestTrackLocation;
     // Next 3 variables are related (XXXX XYYY ZZZa aaaa)
     uint16_t turn_count_default; // X = current turn count
     uint16_t turn_count_banked;
@@ -279,8 +283,6 @@ struct Ride
     // Unused always 0? Should affect nausea
     uint16_t var_11C;
     uint8_t num_sheltered_sections; // (?abY YYYY)
-    // see cur_test_track_location
-    uint8_t cur_test_track_z;
     // Customer counter in the current 960 game tick (about 30 seconds) interval
     uint16_t cur_num_customers;
     // Counts ticks to update customer intervals, resets each 960 game ticks.
@@ -288,8 +290,7 @@ struct Ride
     // Customer count in the last 10 * 960 game ticks (sliding window)
     uint16_t num_customers[CUSTOMER_HISTORY_SIZE];
     money16 price;
-    LocationXY8 chairlift_bullwheel_location[2];
-    uint8_t chairlift_bullwheel_z[2];
+    TileCoordsXYZ ChairliftBullwheelLocation[2];
     union
     {
         rating_tuple ratings;
@@ -372,9 +373,7 @@ struct Ride
     uint16_t total_air_time;
     uint8_t current_test_station;
     uint8_t num_circuits;
-    int16_t cable_lift_x;
-    int16_t cable_lift_y;
-    uint8_t cable_lift_z;
+    CoordsXYZ CableLiftLoc;
     uint16_t cable_lift;
     // These fields are used to warn users about issues.
     // Such issue can be hacked rides with incompatible options set.
@@ -992,7 +991,8 @@ struct rct_ride_properties
 #define TURN_MASK_3_ELEMENTS 0x0700
 #define TURN_MASK_4_PLUS_ELEMENTS 0xF800
 
-#define CONSTRUCTION_LIFT_HILL_SELECTED 1
+constexpr uint32_t CONSTRUCTION_LIFT_HILL_SELECTED = 1 << 0;
+constexpr uint32_t CONSTRUCTION_INVERTED_TRACK_SELECTED = 1 << 1;
 
 extern const rct_ride_properties RideProperties[RIDE_TYPE_COUNT];
 
@@ -1169,19 +1169,17 @@ int32_t sub_6C683D(
     int32_t* x, int32_t* y, int32_t* z, int32_t direction, int32_t type, uint16_t extra_params, TileElement** output_element,
     uint16_t flags);
 void ride_set_map_tooltip(TileElement* tileElement);
-int32_t ride_music_params_update(
-    int16_t x, int16_t y, int16_t z, Ride* ride, uint16_t sampleRate, uint32_t position, uint8_t* tuneId);
+int32_t ride_music_params_update(CoordsXYZ rideCoords, Ride* ride, uint16_t sampleRate, uint32_t position, uint8_t* tuneId);
 void ride_music_update_final();
 void ride_prepare_breakdown(Ride* ride, int32_t breakdownReason);
 TileElement* ride_get_station_start_track_element(Ride* ride, int32_t stationIndex);
-TileElement* ride_get_station_exit_element(int32_t x, int32_t y, int32_t z);
+TileElement* ride_get_station_exit_element(const CoordsXYZ& elementPos);
 void ride_set_status(Ride* ride, int32_t status);
 void ride_set_name(Ride* ride, const char* name, uint32_t flags);
 int32_t ride_get_refund_price(const Ride* ride);
 int32_t ride_get_random_colour_preset_index(uint8_t ride_type);
 money32 ride_get_common_price(Ride* forRide);
 rct_ride_name get_ride_naming(const uint8_t rideType, rct_ride_entry* rideEntry);
-money32 ride_create_command(int32_t type, int32_t subType, int32_t flags, ride_id_t* outRideIndex, uint8_t* outRideColour);
 
 void ride_clear_for_construction(Ride* ride);
 void ride_entrance_exit_place_provisional_ghost();
@@ -1278,8 +1276,6 @@ int32_t ride_get_entry_index(int32_t rideType, int32_t rideSubType);
 StationObject* ride_get_station_object(const Ride* ride);
 
 void ride_action_modify(Ride* ride, int32_t modifyType, int32_t flags);
-
-LocationXY16 ride_get_rotated_coords(int16_t x, int16_t y, int16_t z);
 
 void determine_ride_entrance_and_exit_locations();
 void ride_clear_leftover_entrances(Ride* ride);

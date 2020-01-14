@@ -98,8 +98,8 @@ public:
         if (_isLarge)
         {
             TileElement* tileElement = banner_get_tile_element((BannerIndex)_bannerIndex);
-            if (!sign_set_colour(
-                    coords.x, coords.y, tileElement->base_height, tileElement->GetDirection(),
+            if (!map_large_scenery_sign_set_colour(
+                    { coords, tileElement->GetBaseZ(), tileElement->GetDirection() },
                     tileElement->AsLargeScenery()->GetSequenceIndex(), _mainColour, _textColour))
             {
                 return MakeResult(GA_ERROR::UNKNOWN, STR_NONE);
@@ -111,7 +111,7 @@ public:
 
             wallElement->SetPrimaryColour(_mainColour);
             wallElement->SetSecondaryColour(_textColour);
-            map_invalidate_tile(coords.x, coords.y, wallElement->base_height * 8, wallElement->clearance_height * 8);
+            map_invalidate_tile({ coords, wallElement->GetBaseZ(), wallElement->GetClearanceZ() });
         }
 
         auto intent = Intent(INTENT_ACTION_UPDATE_BANNER);

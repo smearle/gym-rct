@@ -107,7 +107,7 @@ public:
         }
 
         auto res = std::make_unique<TrackPlaceActionResult>();
-        res->ExpenditureType = RCT_EXPENDITURE_TYPE_RIDE_CONSTRUCTION;
+        res->Expenditure = ExpenditureType::RideConstruction;
         res->Position.x = _origin.x + 16;
         res->Position.y = _origin.y + 16;
         res->Position.z = _origin.z;
@@ -165,11 +165,8 @@ public:
         // First check if any of the track pieces are outside the park
         for (; trackBlock->index != 0xFF; trackBlock++)
         {
-            CoordsXYZ tileCoords{ _origin.x, _origin.y, _origin.z };
-            LocationXY16 track{ trackBlock->x, trackBlock->y };
-            rotate_map_coordinates(&track.x, &track.y, _origin.direction);
-            tileCoords.x += track.x;
-            tileCoords.y += track.y;
+            auto rotatedTrack = CoordsXYZ{ CoordsXY{ trackBlock->x, trackBlock->y }.Rotate(_origin.direction), 0 };
+            auto tileCoords = CoordsXYZ{ _origin.x, _origin.y, _origin.z } + rotatedTrack;
 
             if (!map_is_location_owned(tileCoords) && !gCheatsSandboxMode)
             {
@@ -204,12 +201,8 @@ public:
 
         for (int32_t blockIndex = 0; trackBlock->index != 0xFF; trackBlock++, blockIndex++)
         {
-            CoordsXYZ mapLoc{ _origin.x, _origin.y, _origin.z };
-            LocationXY16 track{ trackBlock->x, trackBlock->y };
-            rotate_map_coordinates(&track.x, &track.y, _origin.direction);
-            mapLoc.x += track.x;
-            mapLoc.y += track.y;
-            mapLoc.z += trackBlock->z;
+            auto rotatedTrack = CoordsXYZ{ CoordsXY{ trackBlock->x, trackBlock->y }.Rotate(_origin.direction), trackBlock->z };
+            auto mapLoc = CoordsXYZ{ _origin.x, _origin.y, _origin.z } + rotatedTrack;
             auto quarterTile = trackBlock->var_08.Rotate(_origin.direction);
 
             if (mapLoc.z < 16)
@@ -240,11 +233,21 @@ public:
                 ? CREATE_CROSSING_MODE_TRACK_OVER_PATH
                 : CREATE_CROSSING_MODE_NONE;
             if (!map_can_construct_with_clear_at(
-                    mapLoc.x, mapLoc.y, baseZ, clearanceZ, &map_place_non_scenery_clear_func, quarterTile, GetFlags(), &cost,
+                    { mapLoc, baseZ * 8, clearanceZ * 8 }, &map_place_non_scenery_clear_func, quarterTile, GetFlags(), &cost,
                     crossingMode))
             {
                 return std::make_unique<TrackPlaceActionResult>(
                     GA_ERROR::NO_CLEARANCE, gGameCommandErrorText, gCommonFormatArgs);
+            }
+
+            // When building a level crossing, remove any pre-existing path furniture.
+            if (crossingMode == CREATE_CROSSING_MODE_TRACK_OVER_PATH)
+            {
+                auto footpathElement = map_get_footpath_element(mapLoc);
+                if (footpathElement != nullptr && footpathElement->AsPath()->HasAddition())
+                {
+                    footpathElement->AsPath()->SetAddition(0);
+                }
             }
 
             uint8_t mapGroundFlags = gMapGroundFlags & (ELEMENT_IS_ABOVE_GROUND | ELEMENT_IS_UNDERGROUND);
@@ -419,7 +422,7 @@ public:
         }
 
         auto res = std::make_unique<TrackPlaceActionResult>();
-        res->ExpenditureType = RCT_EXPENDITURE_TYPE_RIDE_CONSTRUCTION;
+        res->Expenditure = ExpenditureType::RideConstruction;
         res->Position.x = _origin.x + 16;
         res->Position.y = _origin.y + 16;
         res->Position.z = _origin.z;
@@ -444,12 +447,8 @@ public:
         trackBlock = get_track_def_from_ride(ride, _trackType);
         for (int32_t blockIndex = 0; trackBlock->index != 0xFF; trackBlock++, blockIndex++)
         {
-            CoordsXYZ mapLoc{ _origin.x, _origin.y, _origin.z };
-            LocationXY16 track{ trackBlock->x, trackBlock->y };
-            rotate_map_coordinates(&track.x, &track.y, _origin.direction);
-            mapLoc.x += track.x;
-            mapLoc.y += track.y;
-            mapLoc.z += trackBlock->z;
+            auto rotatedTrack = CoordsXYZ{ CoordsXY{ trackBlock->x, trackBlock->y }.Rotate(_origin.direction), trackBlock->z };
+            auto mapLoc = CoordsXYZ{ _origin.x, _origin.y, _origin.z } + rotatedTrack;
 
             auto quarterTile = trackBlock->var_08.Rotate(_origin.direction);
 
@@ -470,7 +469,7 @@ public:
                 ? CREATE_CROSSING_MODE_TRACK_OVER_PATH
                 : CREATE_CROSSING_MODE_NONE;
             if (!map_can_construct_with_clear_at(
-                    mapLoc.x, mapLoc.y, baseZ, clearanceZ, &map_place_non_scenery_clear_func, quarterTile,
+                    { mapLoc, baseZ * 8, clearanceZ * 8 }, &map_place_non_scenery_clear_func, quarterTile,
                     GetFlags() | GAME_COMMAND_FLAG_APPLY, &cost, crossingMode))
             {
                 return std::make_unique<TrackPlaceActionResult>(
@@ -479,10 +478,10 @@ public:
 
             if (!(GetFlags() & GAME_COMMAND_FLAG_GHOST) && !gCheatsDisableClearanceChecks)
             {
-                footpath_remove_litter(mapLoc.x, mapLoc.y, mapLoc.z);
+                footpath_remove_litter(mapLoc);
                 if (rideTypeFlags & RIDE_TYPE_FLAG_TRACK_NO_WALLS)
                 {
-                    wall_remove_at(mapLoc.x, mapLoc.y, baseZ * 8, clearanceZ * 8);
+                    wall_remove_at({ mapLoc, baseZ * 8, clearanceZ * 8 });
                 }
                 else
                 {
@@ -494,7 +493,7 @@ public:
                     {
                         if (intersectingDirections & (1 << i))
                         {
-                            wall_remove_intersecting_walls(mapLoc.x, mapLoc.y, baseZ, clearanceZ, i);
+                            wall_remove_intersecting_walls({ mapLoc, baseZ * 8, clearanceZ * 8 }, i);
                         }
                     }
                 }
@@ -532,9 +531,7 @@ public:
                     if (trackBlock->index != 0)
                         break;
                     ride->lifecycle_flags |= RIDE_LIFECYCLE_CABLE_LIFT_HILL_COMPONENT_USED;
-                    ride->cable_lift_x = mapLoc.x;
-                    ride->cable_lift_y = mapLoc.y;
-                    ride->cable_lift_z = baseZ;
+                    ride->CableLiftLoc = { mapLoc, baseZ * 8 };
                     break;
                 case TRACK_ELEM_BLOCK_BRAKES:
                     ride->num_block_brakes++;
@@ -565,7 +562,7 @@ public:
             }
 
             int32_t entranceDirections = 0;
-            if (ride->overall_view.xy != RCT_XY8_UNDEFINED)
+            if (!ride->overall_view.isNull())
             {
                 if (!(GetFlags() & GAME_COMMAND_FLAG_NO_SPEND))
                 {
@@ -580,7 +577,7 @@ public:
                 }
             }
 
-            if (entranceDirections & TRACK_SEQUENCE_FLAG_ORIGIN || ride->overall_view.xy == RCT_XY8_UNDEFINED)
+            if (entranceDirections & TRACK_SEQUENCE_FLAG_ORIGIN || ride->overall_view.isNull())
             {
                 ride->overall_view.x = mapLoc.x / 32;
                 ride->overall_view.y = mapLoc.y / 32;
@@ -608,16 +605,16 @@ public:
             switch (_trackType)
             {
                 case TRACK_ELEM_WATERFALL:
-                    map_animation_create(MAP_ANIMATION_TYPE_TRACK_WATERFALL, mapLoc.x, mapLoc.y, tileElement->base_height);
+                    map_animation_create(MAP_ANIMATION_TYPE_TRACK_WATERFALL, CoordsXYZ{ mapLoc, tileElement->GetBaseZ() });
                     break;
                 case TRACK_ELEM_RAPIDS:
-                    map_animation_create(MAP_ANIMATION_TYPE_TRACK_RAPIDS, mapLoc.x, mapLoc.y, tileElement->base_height);
+                    map_animation_create(MAP_ANIMATION_TYPE_TRACK_RAPIDS, CoordsXYZ{ mapLoc, tileElement->GetBaseZ() });
                     break;
                 case TRACK_ELEM_WHIRLPOOL:
-                    map_animation_create(MAP_ANIMATION_TYPE_TRACK_WHIRLPOOL, mapLoc.x, mapLoc.y, tileElement->base_height);
+                    map_animation_create(MAP_ANIMATION_TYPE_TRACK_WHIRLPOOL, CoordsXYZ{ mapLoc, tileElement->GetBaseZ() });
                     break;
                 case TRACK_ELEM_SPINNING_TUNNEL:
-                    map_animation_create(MAP_ANIMATION_TYPE_TRACK_SPINNINGTUNNEL, mapLoc.x, mapLoc.y, tileElement->base_height);
+                    map_animation_create(MAP_ANIMATION_TYPE_TRACK_SPINNINGTUNNEL, CoordsXYZ{ mapLoc, tileElement->GetBaseZ() });
                     break;
             }
             if (track_element_has_speed_setting(_trackType))
@@ -660,7 +657,7 @@ public:
                             tempLoc.x += CoordsDirectionDelta[tempDirection].x;
                             tempLoc.y += CoordsDirectionDelta[tempDirection].y;
                             tempDirection = direction_reverse(tempDirection);
-                            wall_remove_intersecting_walls(tempLoc.x, tempLoc.y, baseZ, clearanceZ, tempDirection & 3);
+                            wall_remove_intersecting_walls({ tempLoc, baseZ * 8, clearanceZ * 8 }, tempDirection & 3);
                         }
                     }
                 }
@@ -689,9 +686,9 @@ public:
 
             if (!gCheatsDisableClearanceChecks || !(GetFlags() & GAME_COMMAND_FLAG_GHOST))
             {
-                footpath_connect_edges(mapLoc.x, mapLoc.y, tileElement, GetFlags());
+                footpath_connect_edges(mapLoc, tileElement, GetFlags());
             }
-            map_invalidate_tile_full(mapLoc.x, mapLoc.y);
+            map_invalidate_tile_full(mapLoc);
         }
 
         money32 price = RideTrackCosts[ride->type].track_price;

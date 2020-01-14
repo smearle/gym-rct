@@ -70,7 +70,7 @@ const uint8_t _fountainPatternFlags[] = {
 void JumpingFountain::StartAnimation(const int32_t newType, const CoordsXY newLoc, const TileElement* tileElement)
 {
     int32_t randomIndex;
-    auto newZ = tileElement->base_height * 8;
+    auto newZ = tileElement->GetBaseZ();
 
     // Change pattern approximately every 51 seconds
     uint32_t pattern = (gCurrentTicks >> 11) & 7;
@@ -236,14 +236,14 @@ bool JumpingFountain::IsJumpingFountain(const int32_t newType, const CoordsXYZ n
     const int32_t pathBitFlagMask = newType == JUMPING_FOUNTAIN_TYPE_SNOW ? PATH_BIT_FLAG_JUMPING_FOUNTAIN_SNOW
                                                                           : PATH_BIT_FLAG_JUMPING_FOUNTAIN_WATER;
 
-    TileElement* tileElement = map_get_first_element_at(newLoc.x / 32, newLoc.y / 32);
+    TileElement* tileElement = map_get_first_element_at(newLoc);
     if (tileElement == nullptr)
         return false;
     do
     {
         if (tileElement->GetType() != TILE_ELEMENT_TYPE_PATH)
             continue;
-        if (tileElement->base_height != newLoc.z / 8)
+        if (tileElement->GetBaseZ() != newLoc.z)
             continue;
         if (tileElement->AsPath()->AdditionIsGhost())
             continue;

@@ -12,6 +12,7 @@
 
 #include "../common.h"
 #include "../core/Optional.hpp"
+#include "../management/Finance.h"
 #include "../rct12/RCT12.h"
 #include "../ride/Ride.h"
 #include "../ride/RideTypes.h"
@@ -40,6 +41,8 @@
 #define PEEP_MAX_BATHROOM 255
 #define PEEP_MAX_NAUSEA 255
 #define PEEP_MAX_THIRST 255
+
+constexpr auto PEEP_CLEARANCE_HEIGHT = 4 * COORDS_Z_STEP;
 
 struct TileElement;
 struct Ride;
@@ -762,8 +765,8 @@ public:
     bool ShouldFindBench();
     bool UpdateWalkingFindBench();
     bool UpdateWalkingFindBin();
-    void SpendMoney(money16& peep_expend_type, money32 amount);
-    void SpendMoney(money32 amount);
+    void SpendMoney(money16& peep_expend_type, money32 amount, ExpenditureType type);
+    void SpendMoney(money32 amount, ExpenditureType type);
     void SetHasRidden(const Ride* ride);
     bool HasRidden(const Ride* ride) const;
     void SetHasRiddenRideType(int32_t rideType);
@@ -831,6 +834,7 @@ public:
     void UpdateStaff(uint32_t stepsToTake);
     void Tick128UpdateStaff();
     bool IsMechanic() const;
+    bool IsPatrolAreaSet(CoordsXY coords) const;
 
 private:
     void UpdatePatrolling();

@@ -46,7 +46,7 @@ public:
     GameActionResult::Ptr Query() const override
     {
         auto res = MakeResult();
-        res->ExpenditureType = RCT_EXPENDITURE_TYPE_LANDSCAPING;
+        res->Expenditure = ExpenditureType::Landscaping;
         res->Position.x = _coords.x + 16;
         res->Position.y = _coords.y + 16;
         res->Position.z = _height * 8;
@@ -91,7 +91,7 @@ public:
             zLow = temp;
         }
 
-        if (!map_can_construct_at(_coords.x, _coords.y, zLow, zHigh, { 0b1111, 0b1111 }))
+        if (!map_can_construct_at({ _coords, zLow * 8, zHigh * 8 }, { 0b1111, 0b1111 }))
         {
             return MakeResult(GA_ERROR::NO_CLEARANCE, STR_NONE, gGameCommandErrorText, gCommonFormatArgs);
         }
@@ -108,15 +108,15 @@ public:
     GameActionResult::Ptr Execute() const override
     {
         auto res = MakeResult();
-        res->ExpenditureType = RCT_EXPENDITURE_TYPE_LANDSCAPING;
+        res->Expenditure = ExpenditureType::Landscaping;
         res->Position.x = _coords.x + 16;
         res->Position.y = _coords.y + 16;
         res->Position.z = _height * 8;
 
         int32_t surfaceHeight = tile_element_height(_coords);
-        footpath_remove_litter(_coords.x, _coords.y, surfaceHeight);
+        footpath_remove_litter({ _coords, surfaceHeight });
         if (!gCheatsDisableClearanceChecks)
-            wall_remove_at_z(_coords.x, _coords.y, surfaceHeight);
+            wall_remove_at_z({ _coords, surfaceHeight });
 
         SurfaceElement* surfaceElement = map_get_surface_element_at(_coords);
         if (surfaceElement == nullptr)
@@ -133,7 +133,7 @@ public:
         {
             surfaceElement->SetWaterHeight(0);
         }
-        map_invalidate_tile_full(_coords.x, _coords.y);
+        map_invalidate_tile_full(_coords);
 
         res->Cost = 250;
 

@@ -260,6 +260,15 @@ rct_sprite_checksum sprite_checksum()
                 copy.generic.sprite_left = copy.generic.sprite_right = copy.generic.sprite_top = copy.generic.sprite_bottom = 0;
                 copy.generic.sprite_width = copy.generic.sprite_height_negative = copy.generic.sprite_height_positive = 0;
 
+                // Next in quadrant might be a misc sprite, set first non-misc sprite in quadrant.
+                while (auto* nextSprite = get_sprite(copy.generic.next_in_quadrant))
+                {
+                    if (nextSprite->generic.sprite_identifier == SPRITE_IDENTIFIER_MISC)
+                        copy.generic.next_in_quadrant = nextSprite->generic.next_in_quadrant;
+                    else
+                        break;
+                }
+
                 if (copy.generic.sprite_identifier == SPRITE_IDENTIFIER_PEEP)
                 {
                     // Name is pointer and will not be the same across clients
@@ -710,7 +719,7 @@ static bool litter_can_be_at(int32_t x, int32_t y, int32_t z)
     if (!map_is_location_owned({ x, y, z }))
         return false;
 
-    tileElement = map_get_first_element_at(x >> 5, y >> 5);
+    tileElement = map_get_first_element_at({ x, y });
     if (tileElement == nullptr)
         return false;
     do
@@ -718,7 +727,7 @@ static bool litter_can_be_at(int32_t x, int32_t y, int32_t z)
         if (tileElement->GetType() != TILE_ELEMENT_TYPE_PATH)
             continue;
 
-        int32_t pathZ = tileElement->base_height * 8;
+        int32_t pathZ = tileElement->GetBaseZ();
         if (pathZ < z || pathZ >= z + 32)
             continue;
 

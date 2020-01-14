@@ -29,8 +29,7 @@
 #include <algorithm>
 
 bool gParkEntranceGhostExists = false;
-LocationXYZ16 gParkEntranceGhostPosition = { 0, 0, 0 };
-uint8_t gParkEntranceGhostDirection = 0;
+CoordsXYZD gParkEntranceGhostPosition = { 0, 0, 0, 0 };
 std::vector<CoordsXYZD> gParkEntrances;
 
 CoordsXYZD gRideEntranceExitGhostPosition;
@@ -56,8 +55,7 @@ void park_entrance_remove_ghost()
     if (gParkEntranceGhostExists)
     {
         gParkEntranceGhostExists = false;
-        auto parkEntranceRemoveAction = ParkEntranceRemoveAction(
-            { gParkEntranceGhostPosition.x, gParkEntranceGhostPosition.y, gParkEntranceGhostPosition.z * 16 });
+        auto parkEntranceRemoveAction = ParkEntranceRemoveAction(gParkEntranceGhostPosition);
         parkEntranceRemoveAction.SetFlags(GAME_COMMAND_FLAG_ALLOW_DURING_PAUSED);
         GameActions::Execute(&parkEntranceRemoveAction);
     }
@@ -135,10 +133,10 @@ void maze_entrance_hedge_replacement(int32_t x, int32_t y, TileElement* tileElem
     int32_t direction = tileElement->GetDirection();
     x += CoordsDirectionDelta[direction].x;
     y += CoordsDirectionDelta[direction].y;
-    int32_t z = tileElement->base_height;
+    int32_t z = tileElement->GetBaseZ();
     ride_id_t rideIndex = tileElement->AsEntrance()->GetRideIndex();
 
-    tileElement = map_get_first_element_at(x >> 5, y >> 5);
+    tileElement = map_get_first_element_at({ x, y });
     if (tileElement == nullptr)
         return;
     do
@@ -147,7 +145,7 @@ void maze_entrance_hedge_replacement(int32_t x, int32_t y, TileElement* tileElem
             continue;
         if (tileElement->AsTrack()->GetRideIndex() != rideIndex)
             continue;
-        if (tileElement->base_height != z)
+        if (tileElement->GetBaseZ() != z)
             continue;
         if (tileElement->AsTrack()->GetTrackType() != TRACK_ELEM_MAZE)
             continue;
@@ -159,7 +157,7 @@ void maze_entrance_hedge_replacement(int32_t x, int32_t y, TileElement* tileElem
         // Add the bottom outer wall
         tileElement->AsTrack()->MazeEntryAdd(1 << ((mazeSection + 12) & 0x0F));
 
-        map_invalidate_tile(x, y, tileElement->base_height * 8, tileElement->clearance_height * 8);
+        map_invalidate_tile({ x, y, tileElement->GetBaseZ(), tileElement->GetClearanceZ() });
         return;
     } while (!(tileElement++)->IsLastForTile());
 }
@@ -173,10 +171,10 @@ void maze_entrance_hedge_removal(int32_t x, int32_t y, TileElement* tileElement)
     int32_t direction = tileElement->GetDirection();
     x += CoordsDirectionDelta[direction].x;
     y += CoordsDirectionDelta[direction].y;
-    int32_t z = tileElement->base_height;
+    int32_t z = tileElement->GetBaseZ();
     ride_id_t rideIndex = tileElement->AsEntrance()->GetRideIndex();
 
-    tileElement = map_get_first_element_at(x >> 5, y >> 5);
+    tileElement = map_get_first_element_at({ x, y });
     if (tileElement == nullptr)
         return;
     do
@@ -185,7 +183,7 @@ void maze_entrance_hedge_removal(int32_t x, int32_t y, TileElement* tileElement)
             continue;
         if (tileElement->AsTrack()->GetRideIndex() != rideIndex)
             continue;
-        if (tileElement->base_height != z)
+        if (tileElement->GetBaseZ() != z)
             continue;
         if (tileElement->AsTrack()->GetTrackType() != TRACK_ELEM_MAZE)
             continue;
@@ -203,7 +201,7 @@ void maze_entrance_hedge_removal(int32_t x, int32_t y, TileElement* tileElement)
         // Remove the bottom hedge section
         tileElement->AsTrack()->MazeEntrySubtract(1 << ((mazeSection + 15) & 0x0F));
 
-        map_invalidate_tile(x, y, tileElement->base_height * 8, tileElement->clearance_height * 8);
+        map_invalidate_tile({ x, y, tileElement->GetBaseZ(), tileElement->GetClearanceZ() });
         return;
     } while (!(tileElement++)->IsLastForTile());
 }
@@ -214,9 +212,7 @@ void fix_park_entrance_locations(void)
     gParkEntrances.erase(
         std::remove_if(
             gParkEntrances.begin(), gParkEntrances.end(),
-            [](const auto& entrance) {
-                return map_get_park_entrance_element_at(entrance.x, entrance.y, entrance.z >> 3, false) == nullptr;
-            }),
+            [](const auto& entrance) { return map_get_park_entrance_element_at(entrance, false) == nullptr; }),
         gParkEntrances.end());
 }
 

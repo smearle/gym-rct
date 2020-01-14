@@ -65,7 +65,7 @@ public:
         }
 
         bool found = false;
-        TileElement* tileElement = map_get_first_element_at(_loc.x / 32, _loc.y / 32);
+        TileElement* tileElement = map_get_first_element_at(_loc);
 
         do
         {
@@ -125,7 +125,7 @@ public:
         }
 
         bool found = false;
-        TileElement* tileElement = map_get_first_element_at(_loc.x / 32, _loc.y / 32);
+        TileElement* tileElement = map_get_first_element_at(_loc);
 
         do
         {
@@ -172,7 +172,7 @@ public:
 
         footpath_queue_chain_reset();
         maze_entrance_hedge_replacement(_loc.x, _loc.y, tileElement);
-        footpath_remove_edges_at(_loc.x, _loc.y, tileElement);
+        footpath_remove_edges_at(_loc, tileElement);
 
         tile_element_remove(tileElement);
 
@@ -187,7 +187,7 @@ public:
 
         footpath_update_queue_chains();
 
-        map_invalidate_tile_full(_loc.x, _loc.y);
+        map_invalidate_tile_full(_loc);
         return res;
     }
 };

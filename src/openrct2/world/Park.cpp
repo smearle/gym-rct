@@ -116,7 +116,7 @@ void update_park_fences(const CoordsXY coords)
     {
         bool fenceRequired = true;
 
-        TileElement* tileElement = map_get_first_element_at(coords.x / 32, coords.y / 32);
+        TileElement* tileElement = map_get_first_element_at(coords);
         if (tileElement == nullptr)
             return;
         // If an entrance element do not place flags around surface
@@ -166,9 +166,9 @@ void update_park_fences(const CoordsXY coords)
 
     if (surfaceElement->GetParkFences() != newFences)
     {
-        int32_t z0 = surfaceElement->base_height * 8;
-        int32_t z1 = z0 + 16;
-        map_invalidate_tile(coords.x, coords.y, z0, z1);
+        int32_t baseZ = surfaceElement->GetBaseZ();
+        int32_t clearZ = baseZ + 16;
+        map_invalidate_tile({ coords, baseZ, clearZ });
         surfaceElement->SetParkFences(newFences);
     }
 }
@@ -657,7 +657,10 @@ uint8_t Park::CalculateGuestInitialHappiness(uint8_t percentage)
     // This sequence can be defined as PI*(9+n)/2 (the value is floored)
     for (uint8_t n = 1; n < 55; n++)
     {
-        if ((3.14159 * (9 + n)) / 2 >= percentage)
+        // Avoid floating point math by rescaling PI up.
+        constexpr int32_t SCALE = 100000;
+        constexpr int32_t PI_SCALED = 314159; // PI * SCALE;
+        if (((PI_SCALED * (9 + n)) / SCALE) / 2 >= percentage)
         {
             return (9 + n) * 4;
         }

@@ -243,7 +243,7 @@ static bool sub_6DF01A_loop(rct_vehicle* vehicle)
             _vehicleVAngleEndF64E36 = TrackDefinitions[trackType].vangle_end;
             _vehicleBankEndF64E37 = TrackDefinitions[trackType].bank_end;
             TileElement* trackElement = map_get_track_element_at_of_type_seq(
-                vehicle->track_x, vehicle->track_y, vehicle->track_z / 8, trackType, 0);
+                { vehicle->track_x, vehicle->track_y, vehicle->track_z }, trackType, 0);
 
             CoordsXYE input;
             CoordsXYE output;
@@ -271,7 +271,7 @@ static bool sub_6DF01A_loop(rct_vehicle* vehicle)
 
         vehicle->track_progress = trackProgress;
         moveInfo = vehicle_get_move_info(vehicle->var_CD, vehicle->track_type, trackProgress);
-        LocationXYZ16 unk = { moveInfo->x, moveInfo->y, moveInfo->z };
+        CoordsXYZ unk = { moveInfo->x, moveInfo->y, moveInfo->z };
 
         unk.x += vehicle->track_x;
         unk.y += vehicle->track_y;
@@ -321,7 +321,7 @@ static bool sub_6DF21B_loop(rct_vehicle* vehicle)
             _vehicleBankEndF64E37 = TrackDefinitions[trackType].bank_start;
 
             TileElement* trackElement = map_get_track_element_at_of_type_seq(
-                vehicle->track_x, vehicle->track_y, vehicle->track_z / 8, trackType, 0);
+                { vehicle->track_x, vehicle->track_y, vehicle->track_z }, trackType, 0);
 
             CoordsXYE input;
 
@@ -355,7 +355,7 @@ static bool sub_6DF21B_loop(rct_vehicle* vehicle)
         vehicle->track_progress = trackProgress;
 
         moveInfo = vehicle_get_move_info(vehicle->var_CD, vehicle->track_type, trackProgress);
-        LocationXYZ16 unk = { moveInfo->x, moveInfo->y, moveInfo->z };
+        CoordsXYZ unk = { moveInfo->x, moveInfo->y, moveInfo->z };
 
         unk.x += vehicle->track_x;
         unk.y += vehicle->track_y;

@@ -106,7 +106,7 @@ public:
     GameActionResult::Ptr Execute() const override
     {
         GameActionResult::Ptr res = std::make_unique<GameActionResult>();
-        res->ExpenditureType = RCT_EXPENDITURE_TYPE_RIDE_RUNNING_COSTS;
+        res->Expenditure = ExpenditureType::RideRunningCosts;
 
         auto ride = get_ride(_rideIndex);
         if (ride == nullptr)
@@ -120,7 +120,7 @@ public:
 
         res->ErrorTitle = _StatusErrorTitles[_status];
         ride->FormatNameTo(res->ErrorMessageArgs.data() + 6);
-        if (ride->overall_view.xy != RCT_XY8_UNDEFINED)
+        if (!ride->overall_view.isNull())
         {
             res->Position.x = ride->overall_view.x * 32 + 16;
             res->Position.y = ride->overall_view.y * 32 + 16;

@@ -472,7 +472,7 @@ bool Peep::CheckForPath()
         return true;
     }
 
-    TileElement* tile_element = map_get_first_element_at(next_x / 32, next_y / 32);
+    TileElement* tile_element = map_get_first_element_at({ next_x, next_y });
 
     uint8_t map_type = TILE_ELEMENT_TYPE_PATH;
     if (GetNextIsSurface())
@@ -765,7 +765,7 @@ bool Peep::Place(TileCoordsXYZ location, bool apply)
     TileElement* tileElement = reinterpret_cast<TileElement*>(pathElement);
     if (!pathElement)
     {
-        tileElement = reinterpret_cast<TileElement*>(map_get_surface_element_at(location.x, location.y));
+        tileElement = reinterpret_cast<TileElement*>(map_get_surface_element_at(location.ToCoordsXYZ()));
     }
 
     if (!tileElement)
@@ -773,7 +773,7 @@ bool Peep::Place(TileCoordsXYZ location, bool apply)
 
     // Set the coordinate of destination to be exactly
     // in the middle of a tile.
-    CoordsXYZ destination = { location.x * 32 + 16, location.y * 32 + 16, tileElement->base_height * 8 + 16 };
+    CoordsXYZ destination = { location.x * 32 + 16, location.y * 32 + 16, tileElement->GetBaseZ() + 16 };
 
     if (!map_is_location_owned(destination))
     {
@@ -781,7 +781,7 @@ bool Peep::Place(TileCoordsXYZ location, bool apply)
         return false;
     }
 
-    if (!map_can_construct_at(destination.x, destination.y, destination.z / 8, (destination.z / 8) + 1, { 0b1111, 0 }))
+    if (!map_can_construct_at({ destination, destination.z, destination.z + (1 * 8) }, { 0b1111, 0 }))
     {
         if (gGameCommandErrorText != STR_RAISE_OR_LOWER_LAND_FIRST)
         {
@@ -899,7 +899,7 @@ void Peep::UpdateFalling()
     }
 
     // If not drowning then falling. Note: peeps 'fall' after leaving a ride/enter the park.
-    TileElement* tile_element = map_get_first_element_at(x / 32, y / 32);
+    TileElement* tile_element = map_get_first_element_at({ x, y });
     TileElement* saved_map = nullptr;
     int32_t saved_height = 0;
 
@@ -912,7 +912,7 @@ void Peep::UpdateFalling()
             {
                 int32_t height = map_height_from_slope(
                                      { x, y }, tile_element->AsPath()->GetSlopeDirection(), tile_element->AsPath()->IsSloped())
-                    + tile_element->base_height * 8;
+                    + tile_element->GetBaseZ();
 
                 if (height < z - 1 || height > z + 4)
                     continue;
@@ -2540,7 +2540,7 @@ static void peep_interact_with_entrance(Peep* peep, int16_t x, int16_t y, TileEl
             int16_t next_y = (y & 0xFFE0) + CoordsDirectionDelta[entranceDirection].y;
 
             // Make sure there is a path right behind the entrance, otherwise turn around
-            TileElement* nextTileElement = map_get_first_element_at(next_x / 32, next_y / 32);
+            TileElement* nextTileElement = map_get_first_element_at({ next_x, next_y });
             do
             {
                 if (nextTileElement == nullptr)
@@ -2623,8 +2623,7 @@ static void peep_interact_with_entrance(Peep* peep, int16_t x, int16_t y, TileEl
             }
 
             gTotalIncomeFromAdmissions += entranceFee;
-            gCommandExpenditureType = RCT_EXPENDITURE_TYPE_PARK_ENTRANCE_TICKETS;
-            guest->SpendMoney(peep->paid_to_enter, entranceFee);
+            guest->SpendMoney(peep->paid_to_enter, entranceFee, ExpenditureType::ParkEntranceTickets);
             peep->peep_flags |= PEEP_FLAGS_HAS_PAID_FOR_PARK_ENTRY;
         }
 
@@ -2795,7 +2794,7 @@ static void peep_interact_with_path(Peep* peep, int16_t x, int16_t y, TileElemen
         vandalism_present = true;
     }
 
-    int16_t z = tile_element->base_height * 8;
+    int16_t z = tile_element->GetBaseZ();
     if (map_is_location_owned({ x, y, z }))
     {
         if (peep->outside_of_park == 1)
@@ -2961,11 +2960,10 @@ static bool peep_interact_with_shop(Peep* peep, int16_t x, int16_t y, TileElemen
         {
             ride->total_profit += cost;
             ride->window_invalidate_flags |= RIDE_INVALIDATE_RIDE_INCOME;
-            gCommandExpenditureType = RCT_EXPENDITURE_TYPE_PARK_RIDE_TICKETS;
             // TODO: Refactor? SpendMoney previously accepted nullptr to not track money, passing a temporary variable as a
             // workaround
             money16 money = 0;
-            guest->SpendMoney(money, cost);
+            guest->SpendMoney(money, cost, ExpenditureType::ParkRideTickets);
         }
         peep->destination_x = (x & 0xFFE0) + 16;
         peep->destination_y = (y & 0xFFE0) + 16;
@@ -3078,7 +3076,8 @@ void Peep::PerformNextAction(uint8_t& pathing_result, TileElement*& tile_result)
     }
 
     auto newLoc = *loc;
-    if ((newLoc.x & 0xFFE0) == next_x && (newLoc.y & 0xFFE0) == next_y)
+    CoordsXY truncatedNewLoc = newLoc.ToTileStart();
+    if (truncatedNewLoc.x == next_x && truncatedNewLoc.y == next_y)
     {
         int16_t height = GetZOnSlope(newLoc.x, newLoc.y);
         MoveTo(newLoc.x, newLoc.y, height);
@@ -3095,7 +3094,7 @@ void Peep::PerformNextAction(uint8_t& pathing_result, TileElement*& tile_result)
         return;
     }
 
-    TileElement* tileElement = map_get_first_element_at(newLoc.x / 32, newLoc.y / 32);
+    TileElement* tileElement = map_get_first_element_at(newLoc);
     if (tileElement == nullptr)
         return;
     int16_t base_z = std::max(0, (z / 8) - 2);
@@ -3175,8 +3174,8 @@ void Peep::PerformNextAction(uint8_t& pathing_result, TileElement*& tile_result)
             }
 
             // The peep is on a surface and not on a path
-            next_x = newLoc.x & 0xFFE0;
-            next_y = newLoc.y & 0xFFE0;
+            next_x = truncatedNewLoc.x;
+            next_y = truncatedNewLoc.y;
             next_z = surfaceElement->base_height;
             SetNextFlags(0, false, true);
 

@@ -105,6 +105,15 @@ public:
         if (surfaceElement == nullptr)
             return std::make_unique<GameActionResult>(GA_ERROR::UNKNOWN, STR_NONE);
 
+        // We need to check if there is _currently_ a level crossing on the tile.
+        // For that, we need the old height, so we can't use the _height variable.
+        auto oldCoords = CoordsXYZ{ _coords, surfaceElement->GetBaseZ() };
+        auto* pathElement = map_get_footpath_element(oldCoords);
+        if (pathElement != nullptr && pathElement->AsPath()->IsLevelCrossing(oldCoords))
+        {
+            return MakeResult(GA_ERROR::DISALLOWED, STR_REMOVE_LEVEL_CROSSING_FIRST);
+        }
+
         TileElement* tileElement = CheckFloatingStructures(reinterpret_cast<TileElement*>(surfaceElement), _height);
         if (tileElement != nullptr)
         {
@@ -124,7 +133,7 @@ public:
                 }
             }
             if (!map_can_construct_with_clear_at(
-                    _coords.x, _coords.y, _height, zCorner, &map_set_land_height_clear_func, { 0b1111, 0 }, 0, nullptr,
+                    { _coords, _height * 8, zCorner * 8 }, &map_set_land_height_clear_func, { 0b1111, 0 }, 0, nullptr,
                     CREATE_CROSSING_MODE_NONE))
             {
                 return std::make_unique<GameActionResult>(
@@ -140,7 +149,7 @@ public:
         }
         auto res = std::make_unique<GameActionResult>();
         res->Cost = sceneryRemovalCost + GetSurfaceHeightChangeCost(surfaceElement);
-        res->ExpenditureType = RCT_EXPENDITURE_TYPE_LANDSCAPING;
+        res->Expenditure = ExpenditureType::Landscaping;
         return res;
     }
 
@@ -148,11 +157,11 @@ public:
     {
         money32 cost = MONEY(0, 0);
         auto surfaceHeight = tile_element_height(_coords);
-        footpath_remove_litter(_coords.x, _coords.y, surfaceHeight);
+        footpath_remove_litter({ _coords, surfaceHeight });
 
         if (!gCheatsDisableClearanceChecks)
         {
-            wall_remove_at(_coords.x, _coords.y, _height * 8 - 16, _height * 8 + 32);
+            wall_remove_at({ _coords, _height * 8 - 16, _height * 8 + 32 });
             cost += GetSmallSceneryRemovalCost();
             SmallSceneryRemoval();
         }
@@ -167,7 +176,7 @@ public:
         auto res = std::make_unique<GameActionResult>();
         res->Position = { _coords.x + 16, _coords.y + 16, surfaceHeight };
         res->Cost = cost;
-        res->ExpenditureType = RCT_EXPENDITURE_TYPE_LANDSCAPING;
+        res->Expenditure = ExpenditureType::Landscaping;
         return res;
     }
 
@@ -204,7 +213,7 @@ private:
 
     TileElement* CheckTreeObstructions() const
     {
-        TileElement* tileElement = map_get_first_element_at(_coords.x / 32, _coords.y / 32);
+        TileElement* tileElement = map_get_first_element_at(_coords);
         do
         {
             if (tileElement == nullptr)
@@ -227,7 +236,7 @@ private:
     money32 GetSmallSceneryRemovalCost() const
     {
         money32 cost{ 0 };
-        TileElement* tileElement = map_get_first_element_at(_coords.x / 32, _coords.y / 32);
+        TileElement* tileElement = map_get_first_element_at(_coords);
         do
         {
             if (tileElement == nullptr)
@@ -246,7 +255,7 @@ private:
 
     void SmallSceneryRemoval() const
     {
-        TileElement* tileElement = map_get_first_element_at(_coords.x / 32, _coords.y / 32);
+        TileElement* tileElement = map_get_first_element_at(_coords);
         do
         {
             if (tileElement == nullptr)
@@ -263,7 +272,7 @@ private:
 
     rct_string_id CheckRideSupports() const
     {
-        TileElement* tileElement = map_get_first_element_at(_coords.x / 32, _coords.y / 32);
+        TileElement* tileElement = map_get_first_element_at(_coords);
         do
         {
             if (tileElement == nullptr)
@@ -320,7 +329,7 @@ private:
 
     TileElement* CheckUnremovableObstructions(TileElement * surfaceElement, uint8_t zCorner) const
     {
-        TileElement* tileElement = map_get_first_element_at(_coords.x / 32, _coords.y / 32);
+        TileElement* tileElement = map_get_first_element_at(_coords);
         do
         {
             if (tileElement == nullptr)
@@ -375,7 +384,7 @@ private:
             surfaceElement->AsSurface()->SetWaterHeight(0);
         }
 
-        map_invalidate_tile_full(_coords.x, _coords.y);
+        map_invalidate_tile_full(_coords);
     }
 
     /**
@@ -383,8 +392,8 @@ private:
      *  rct2: 0x00663CB9
      */
     static int32_t map_set_land_height_clear_func(
-        TileElement * *tile_element, [[maybe_unused]] int32_t x, [[maybe_unused]] int32_t y, [[maybe_unused]] uint8_t flags,
-        [[maybe_unused]] money32 * price)
+        TileElement * *tile_element, [[maybe_unused]] const CoordsXY& coords, [[maybe_unused]] uint8_t flags,
+        [[maybe_unused]] money32* price)
     {
         if ((*tile_element)->GetType() == TILE_ELEMENT_TYPE_SURFACE)
             return 0;

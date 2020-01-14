@@ -98,6 +98,15 @@ struct viewport_interaction_info
     };
 };
 
+struct InteractionInfo
+{
+    InteractionInfo() = default;
+    InteractionInfo(const paint_struct* ps);
+    CoordsXY Loc;
+    TileElement* Element = nullptr;
+    uint8_t SpriteType;
+};
+
 #define MAX_VIEWPORT_COUNT WINDOW_LIMIT_MAX
 #define MAX_ZOOM_LEVEL 3
 
@@ -140,9 +149,9 @@ void viewport_paint(
 
 CoordsXYZ viewport_adjust_for_map_height(const ScreenCoordsXY startCoords);
 
-LocationXY16 screen_coord_to_viewport_coord(rct_viewport* viewport, ScreenCoordsXY screenCoords);
+ScreenCoordsXY screen_coord_to_viewport_coord(rct_viewport* viewport, ScreenCoordsXY screenCoords);
 CoordsXY viewport_coord_to_map_coord(int32_t x, int32_t y, int32_t z);
-CoordsXY screen_pos_to_map_pos(ScreenCoordsXY screenCoords, int32_t* direction);
+std::optional<CoordsXY> screen_pos_to_map_pos(ScreenCoordsXY screenCoords, int32_t* direction);
 
 void show_gridlines();
 void hide_gridlines();
@@ -159,6 +168,7 @@ void get_map_coordinates_from_pos_window(
     rct_window* window, ScreenCoordsXY screenCoords, int32_t flags, CoordsXY& mapCoords, int32_t* interactionType,
     TileElement** tileElement, rct_viewport** viewport);
 
+InteractionInfo set_interaction_info_from_paint_session(paint_session* session, uint16_t filter);
 int32_t viewport_interaction_get_item_left(ScreenCoordsXY screenCoords, viewport_interaction_info* info);
 int32_t viewport_interaction_left_over(ScreenCoordsXY screenCoords);
 int32_t viewport_interaction_left_click(ScreenCoordsXY screenCoords);

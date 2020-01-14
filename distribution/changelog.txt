@@ -1,7 +1,21 @@
 0.2.4+ (in development)
 ------------------------------------------------------------------------
+- Feature: [#7865] Transport rides can now be synchronised.
+- Feature: [#10305] Add two shortcuts for increasing and decreasing the scaling factor.
+- Feature: [#10189] Make Track Designs work in multiplayer.
 - Change: [#1164] Use available translations for shortcut key bindings.
+- Fix: [#5249] No collision detection when building ride entrance at heights > 85.5m.
+- Fix: [#7784] Vehicle tab takes 1st car colour instead of tab_vehicle's colour.
+- Fix: [#8875] RCT1 competition scenarios are classified incorrectly.
 - Fix: [#10228] Can't import RCT1 Deluxe from Steam.
+- Fix: [#10313] Path furniture can be placed on level crossings.
+- Fix: [#10325] Crash when banners have no text.
+- Fix: [#10420] Money effect causing false positive desync.
+- Fix: [#10477] Large Scenery cannot be placed higher using SHIFT.
+- Fix: [#10489] Hosts last player action not being synchronized.
+- Fix: [#10543] Secondary shop item prices are not imported correctly from RCT1 saves.
+- Fix: [#10547] RCT1 parks have too many rides available.
+- Removed: [#6898] LOADMM and LOADRCT1 title sequence commands (use LOADSC instead).
 
 0.2.4 (2019-10-28)
 ------------------------------------------------------------------------

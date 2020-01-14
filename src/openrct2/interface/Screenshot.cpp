@@ -292,16 +292,16 @@ static CoordsXY GetEdgeTile(int32_t mapSize, int32_t rotation, EdgeType edgeType
 static int32_t GetHighestBaseClearanceZ(CoordsXY location)
 {
     int32_t z = 0;
-    auto element = map_get_first_element_at(location.x >> 5, location.y >> 5);
+    auto element = map_get_first_element_at(location);
     if (element != nullptr)
     {
         do
         {
-            z = std::max<int32_t>(z, element->base_height);
-            z = std::max<int32_t>(z, element->clearance_height);
+            z = std::max<int32_t>(z, element->GetBaseZ());
+            z = std::max<int32_t>(z, element->GetClearanceZ());
         } while (!(element++)->IsLastForTile());
     }
-    return z * 8;
+    return z;
 }
 
 static int32_t GetTallestVisibleTileTop(int32_t mapSize, int32_t rotation)
@@ -311,7 +311,7 @@ static int32_t GetTallestVisibleTileTop(int32_t mapSize, int32_t rotation)
     {
         for (int32_t x = 1; x < mapSize - 1; x++)
         {
-            auto location = CoordsXY(x * 32, y * 32);
+            auto location = TileCoordsXY(x, y).ToCoordsXY();
             int32_t z = GetHighestBaseClearanceZ(location);
             int32_t viewY = translate_3d_to_2d_with_z(rotation, CoordsXYZ(location, z)).y;
             minViewY = std::min(minViewY, viewY);

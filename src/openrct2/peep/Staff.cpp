@@ -42,6 +42,18 @@
 #include <algorithm>
 #include <iterator>
 
+/**
+ * Monthly staff wages
+ *
+ * rct2: 0x00992A00
+ */
+const money32 gStaffWageTable[STAFF_TYPE_COUNT] = {
+    MONEY(50, 00), // Handyman
+    MONEY(80, 00), // Mechanic
+    MONEY(60, 00), // Security guard
+    MONEY(55, 00), // Entertainer
+};
+
 // clang-format off
 const rct_string_id StaffCostumeNames[] = {
         STR_STAFF_OPTION_COSTUME_PANDA,
@@ -157,14 +169,6 @@ void staff_update_greyed_patrol_areas()
     }
 }
 
-static bool staff_is_location_in_patrol_area(Peep* peep, int32_t x, int32_t y)
-{
-    // Patrol quads are stored in a bit map (8 patrol quads per byte)
-    // Each patrol quad is 4x4
-    // Therefore there are in total 64 x 64 patrol quads in the 256 x 256 map
-    return staff_is_patrol_area_set(peep->staff_id, x, y);
-}
-
 /**
  *
  *  rct2: 0x006C0905
@@ -179,7 +183,7 @@ bool staff_is_location_in_patrol(Peep* staff, int32_t x, int32_t y)
     if (!(gStaffModes[staff->staff_id] & 2))
         return true;
 
-    return staff_is_location_in_patrol_area(staff, x, y);
+    return staff->AsStaff()->IsPatrolAreaSet({ x, y });
 }
 
 bool staff_is_location_on_patrol_edge(Peep* mechanic, int32_t x, int32_t y)
@@ -267,7 +271,7 @@ bool staff_can_ignore_wide_flag(Peep* staff, int32_t x, int32_t y, uint8_t z, Ti
         }
 
         /* Search through all adjacent map elements */
-        TileElement* test_element = map_get_first_element_at(adjac_x / 32, adjac_y / 32);
+        TileElement* test_element = map_get_first_element_at({ adjac_x, adjac_y });
         if (test_element == nullptr)
             return false;
         bool pathfound = false;
@@ -374,8 +378,14 @@ void staff_reset_stats()
     }
 }
 
-bool staff_is_patrol_area_set(int32_t staffIndex, int32_t x, int32_t y)
+static bool staff_is_patrol_area_set(int32_t staffIndex, int32_t x, int32_t y)
 {
+    // Patrol quads are stored in a bit map (8 patrol quads per byte).
+    // Each patrol quad is 4x4.
+    // Therefore there are in total 64 x 64 patrol quads in the 256 x 256 map.
+    // At the end of the array (after the slots for individual staff members),
+    // there are slots that save the combined patrol area for every staff type.
+
     x = (x & 0x1F80) >> 7;
     y = (y & 0x1F80) >> 1;
 
@@ -383,6 +393,16 @@ bool staff_is_patrol_area_set(int32_t staffIndex, int32_t x, int32_t y)
     int32_t offset = (x | y) >> 5;
     int32_t bitIndex = (x | y) & 0x1F;
     return gStaffPatrolAreas[peepOffset + offset] & (((uint32_t)1) << bitIndex);
+}
+
+bool Staff::IsPatrolAreaSet(CoordsXY coords) const
+{
+    return staff_is_patrol_area_set(staff_id, coords.x, coords.y);
+}
+
+bool staff_is_patrol_area_set_for_type(STAFF_TYPE type, CoordsXY coords)
+{
+    return staff_is_patrol_area_set(STAFF_MAX_COUNT + type, coords.x, coords.y);
 }
 
 void staff_set_patrol_area(int32_t staffIndex, int32_t x, int32_t y, bool value)
@@ -445,8 +465,7 @@ static uint8_t staff_handyman_direction_to_nearest_litter(Peep* peep)
         return 0xFF;
     }
 
-    LocationXY16 litterTile = { static_cast<int16_t>(nearestLitter->x & 0xFFE0),
-                                static_cast<int16_t>(nearestLitter->y & 0xFFE0) };
+    auto litterTile = CoordsXY{ nearestLitter->x, nearestLitter->y }.ToTileStart();
 
     if (!staff_is_location_in_patrol(peep, litterTile.x, litterTile.y))
     {
@@ -475,7 +494,7 @@ static uint8_t staff_handyman_direction_to_nearest_litter(Peep* peep)
 
     int16_t nextZ = ((peep->z + 8) & 0xFFF0) / 8;
 
-    TileElement* tileElement = map_get_first_element_at(nextTile.x / 32, nextTile.y / 32);
+    TileElement* tileElement = map_get_first_element_at(nextTile);
     if (tileElement == nullptr)
         return 0xFF;
     do
@@ -491,7 +510,7 @@ static uint8_t staff_handyman_direction_to_nearest_litter(Peep* peep)
     nextTile.x = (peep->x & 0xFFE0) + CoordsDirectionDelta[nextDirection].x;
     nextTile.y = (peep->y & 0xFFE0) + CoordsDirectionDelta[nextDirection].y;
 
-    tileElement = map_get_first_element_at(nextTile.x / 32, nextTile.y / 32);
+    tileElement = map_get_first_element_at(nextTile);
     if (tileElement == nullptr)
         return 0xFF;
 
@@ -516,7 +535,7 @@ static uint8_t staff_handyman_direction_to_uncut_grass(Peep* peep, uint8_t valid
 {
     if (!(peep->GetNextIsSurface()))
     {
-        auto surfaceElement = map_get_surface_element_at({ peep->next_x, peep->next_y });
+        auto surfaceElement = map_get_surface_element_at(CoordsXY{ peep->next_x, peep->next_y });
         if (surfaceElement == nullptr)
             return INVALID_DIRECTION;
 
@@ -576,10 +595,10 @@ static int32_t staff_handyman_direction_rand_surface(Peep* peep, uint8_t validDi
         if (!(validDirections & (1 << direction)))
             continue;
 
-        LocationXY16 chosenTile = { static_cast<int16_t>(peep->next_x + CoordsDirectionDelta[direction].x),
-                                    static_cast<int16_t>(peep->next_y + CoordsDirectionDelta[direction].y) };
+        CoordsXY chosenTile = { peep->next_x + CoordsDirectionDelta[direction].x,
+                                peep->next_y + CoordsDirectionDelta[direction].y };
 
-        if (map_surface_is_blocked(chosenTile.x, chosenTile.y))
+        if (map_surface_is_blocked(chosenTile))
             continue;
 
         break;
@@ -665,8 +684,8 @@ static bool staff_path_finding_handyman(Peep* peep)
     // countof(CoordsDirectionDelta)
     assert(direction < 8);
 
-    LocationXY16 chosenTile = { static_cast<int16_t>(peep->next_x + CoordsDirectionDelta[direction].x),
-                                static_cast<int16_t>(peep->next_y + CoordsDirectionDelta[direction].y) };
+    CoordsXY chosenTile = { peep->next_x + CoordsDirectionDelta[direction].x,
+                            peep->next_y + CoordsDirectionDelta[direction].y };
 
     while (chosenTile.x > 0x1FFF || chosenTile.y > 0x1FFF)
     {
@@ -708,16 +727,22 @@ static uint8_t staff_direction_surface(Peep* peep, uint8_t initialDirection)
 
         direction &= 3;
 
-        if (fence_in_the_way(peep->next_x, peep->next_y, peep->next_z, peep->next_z + 4, direction))
+        if (fence_in_the_way(
+                { peep->next_x, peep->next_y, peep->next_z * COORDS_Z_STEP,
+                  (peep->next_z * COORDS_Z_STEP) + PEEP_CLEARANCE_HEIGHT },
+                direction))
             continue;
 
-        if (fence_in_the_way(peep->next_x, peep->next_y, peep->next_z, peep->next_z + 4, direction_reverse(direction)))
+        if (fence_in_the_way(
+                { peep->next_x, peep->next_y, peep->next_z * COORDS_Z_STEP,
+                  (peep->next_z * COORDS_Z_STEP) + PEEP_CLEARANCE_HEIGHT },
+                direction_reverse(direction)))
             continue;
 
-        LocationXY16 chosenTile = { static_cast<int16_t>(peep->next_x + CoordsDirectionDelta[direction].x),
-                                    static_cast<int16_t>(peep->next_y + CoordsDirectionDelta[direction].y) };
+        CoordsXY chosenTile = { peep->next_x + CoordsDirectionDelta[direction].x,
+                                peep->next_y + CoordsDirectionDelta[direction].y };
 
-        if (!map_surface_is_blocked(chosenTile.x, chosenTile.y))
+        if (!map_surface_is_blocked(chosenTile))
         {
             return direction;
         }
@@ -743,7 +768,7 @@ static uint8_t staff_mechanic_direction_surface(Peep* peep)
             location = ride_get_entrance_location(ride, peep->current_ride_station);
         }
 
-        LocationXY16 chosenTile = { static_cast<int16_t>(location.x * 32), static_cast<int16_t>(location.y * 32) };
+        CoordsXY chosenTile = location.ToCoordsXY();
 
         int16_t x_diff = chosenTile.x - peep->x;
         int16_t y_diff = chosenTile.y - peep->y;
@@ -902,8 +927,8 @@ static bool staff_path_finding_mechanic(Peep* peep)
     // countof(CoordsDirectionDelta)
     assert(direction < 8);
 
-    LocationXY16 chosenTile = { static_cast<int16_t>(peep->next_x + CoordsDirectionDelta[direction].x),
-                                static_cast<int16_t>(peep->next_y + CoordsDirectionDelta[direction].y) };
+    CoordsXY chosenTile = { peep->next_x + CoordsDirectionDelta[direction].x,
+                            peep->next_y + CoordsDirectionDelta[direction].y };
 
     while (chosenTile.x > 0x1FFF || chosenTile.y > 0x1FFF)
     {
@@ -987,8 +1012,8 @@ static bool staff_path_finding_misc(Peep* peep)
         direction = staff_direction_path(peep, validDirections, pathElement);
     }
 
-    LocationXY16 chosenTile = { static_cast<int16_t>(peep->next_x + CoordsDirectionDelta[direction].x),
-                                static_cast<int16_t>(peep->next_y + CoordsDirectionDelta[direction].y) };
+    CoordsXY chosenTile = { peep->next_x + CoordsDirectionDelta[direction].x,
+                            peep->next_y + CoordsDirectionDelta[direction].y };
 
     while (chosenTile.x > 0x1FFF || chosenTile.y > 0x1FFF)
     {
@@ -1167,7 +1192,7 @@ int32_t staff_get_available_entertainer_costume_list(uint8_t* costumeList)
 }
 
 /** rct2: 0x009929C8 */
-static constexpr const LocationXY16 _MowingWaypoints[] = {
+static constexpr const CoordsXY _MowingWaypoints[] = {
     { 28, 28 }, { 28, 4 }, { 20, 4 }, { 20, 28 }, { 12, 28 }, { 12, 4 }, { 4, 4 }, { 4, 28 },
 };
 
@@ -1208,11 +1233,11 @@ void Staff::UpdateMowing()
         if (var_37 != 7)
             continue;
 
-        auto surfaceElement = map_get_surface_element_at(next_x / 32, next_y / 32);
+        auto surfaceElement = map_get_surface_element_at(CoordsXY{ next_x, next_y });
         if (surfaceElement != nullptr && surfaceElement->CanGrassGrow())
         {
             surfaceElement->SetGrassLength(GRASS_LENGTH_MOWED);
-            map_invalidate_tile_zoom0(next_x, next_y, surfaceElement->base_height * 8, surfaceElement->base_height * 8 + 16);
+            map_invalidate_tile_zoom0({ next_x, next_y, surfaceElement->GetBaseZ(), surfaceElement->GetBaseZ() + 16 });
         }
         staff_lawns_mown++;
         window_invalidate_flags |= PEEP_INVALIDATE_STAFF_STATS;
@@ -1256,7 +1281,7 @@ void Staff::UpdateWatering()
         int32_t actionX = next_x + CoordsDirectionDelta[var_37].x;
         int32_t actionY = next_y + CoordsDirectionDelta[var_37].y;
 
-        TileElement* tile_element = map_get_first_element_at(actionX / 32, actionY / 32);
+        TileElement* tile_element = map_get_first_element_at({ actionX, actionY });
         if (tile_element == nullptr)
             return;
 
@@ -1274,7 +1299,7 @@ void Staff::UpdateWatering()
                 continue;
 
             tile_element->AsSmallScenery()->SetAge(0);
-            map_invalidate_tile_zoom0(actionX, actionY, tile_element->base_height * 8, tile_element->clearance_height * 8);
+            map_invalidate_tile_zoom0({ actionX, actionY, tile_element->GetBaseZ(), tile_element->GetClearanceZ() });
             staff_gardens_watered++;
             window_invalidate_flags |= PEEP_INVALIDATE_STAFF_STATS;
         } while (!(tile_element++)->IsLastForTile());
@@ -1323,7 +1348,7 @@ void Staff::UpdateEmptyingBin()
         if (action_frame != 11)
             return;
 
-        TileElement* tile_element = map_get_first_element_at(next_x / 32, next_y / 32);
+        TileElement* tile_element = map_get_first_element_at({ next_x, next_y });
         if (tile_element == nullptr)
             return;
 
@@ -1358,8 +1383,7 @@ void Staff::UpdateEmptyingBin()
         uint8_t additionStatus = tile_element->AsPath()->GetAdditionStatus() | ((3 << var_37) << var_37);
         tile_element->AsPath()->SetAdditionStatus(additionStatus);
 
-        map_invalidate_tile_zoom0(next_x, next_y, tile_element->base_height * 8, tile_element->clearance_height * 8);
-
+        map_invalidate_tile_zoom0({ next_x, next_y, tile_element->GetBaseZ(), tile_element->GetClearanceZ() });
         staff_bins_emptied++;
         window_invalidate_flags |= PEEP_INVALIDATE_STAFF_STATS;
     }
@@ -1477,8 +1501,8 @@ void Staff::UpdateHeadingToInspect()
 
         direction = rideEntranceExitElement->GetDirection();
 
-        int32_t destX = next_x + 16 + word_981D6C[direction].x * 53;
-        int32_t destY = next_y + 16 + word_981D6C[direction].y * 53;
+        int32_t destX = next_x + 16 + DirectionOffsets[direction].x * 53;
+        int32_t destY = next_y + 16 + DirectionOffsets[direction].y * 53;
 
         destination_x = destX;
         destination_y = destY;
@@ -1493,7 +1517,7 @@ void Staff::UpdateHeadingToInspect()
     int16_t delta_y = abs(y - destination_y);
     if (auto loc = UpdateAction())
     {
-        int32_t newZ = ride->stations[current_ride_station].Height * 8;
+        int32_t newZ = ride->stations[current_ride_station].GetBaseZ();
 
         if (delta_y < 20)
         {
@@ -1588,8 +1612,8 @@ void Staff::UpdateAnswering()
 
         direction = rideEntranceExitElement->GetDirection();
 
-        int32_t destX = next_x + 16 + word_981D6C[direction].x * 53;
-        int32_t destY = next_y + 16 + word_981D6C[direction].y * 53;
+        int32_t destX = next_x + 16 + DirectionOffsets[direction].x * 53;
+        int32_t destY = next_y + 16 + DirectionOffsets[direction].y * 53;
 
         destination_x = destX;
         destination_y = destY;
@@ -1604,7 +1628,7 @@ void Staff::UpdateAnswering()
     int16_t delta_y = abs(y - destination_y);
     if (auto loc = UpdateAction())
     {
-        int32_t newZ = ride->stations[current_ride_station].Height * 8;
+        int32_t newZ = ride->stations[current_ride_station].GetBaseZ();
 
         if (delta_y < 20)
         {
@@ -1620,7 +1644,7 @@ void Staff::UpdateAnswering()
 }
 
 /** rct2: 0x00992A5C */
-static constexpr const LocationXY16 _WateringUseOffsets[] = {
+static constexpr const CoordsXY _WateringUseOffsets[] = {
     { 3, 16 }, { 16, 29 }, { 29, 16 }, { 16, 3 }, { 3, 29 }, { 29, 29 }, { 29, 3 }, { 3, 3 },
 };
 
@@ -1641,7 +1665,7 @@ static int32_t peep_update_patrolling_find_watering(Peep* peep)
         int32_t x = peep->next_x + CoordsDirectionDelta[chosen_position].x;
         int32_t y = peep->next_y + CoordsDirectionDelta[chosen_position].y;
 
-        TileElement* tile_element = map_get_first_element_at(x / 32, y / 32);
+        TileElement* tile_element = map_get_first_element_at({ x, y });
 
         // This seems to happen in some SV4 files.
         if (tile_element == nullptr)
@@ -1709,7 +1733,7 @@ static int32_t peep_update_patrolling_find_bin(Peep* peep)
     if (peep->GetNextIsSurface())
         return 0;
 
-    TileElement* tileElement = map_get_first_element_at(peep->next_x / 32, peep->next_y / 32);
+    TileElement* tileElement = map_get_first_element_at({ peep->next_x, peep->next_y });
     if (tileElement == nullptr)
         return 0;
 
@@ -1777,7 +1801,7 @@ static int32_t peep_update_patrolling_find_grass(Peep* peep)
     if (!(peep->GetNextIsSurface()))
         return 0;
 
-    auto surfaceElement = map_get_surface_element_at({ peep->next_x, peep->next_y });
+    auto surfaceElement = map_get_surface_element_at(CoordsXY{ peep->next_x, peep->next_y });
     if (surfaceElement != nullptr && surfaceElement->CanGrassGrow())
     {
         if ((surfaceElement->GetGrassLength() & 0x7) >= GRASS_LENGTH_CLEAR_1)
@@ -1915,7 +1939,7 @@ void Staff::UpdatePatrolling()
 
     if (GetNextIsSurface())
     {
-        auto surfaceElement = map_get_surface_element_at({ next_x, next_y });
+        auto surfaceElement = map_get_surface_element_at(CoordsXY{ next_x, next_y });
 
         if (surfaceElement != nullptr)
         {
@@ -2208,7 +2232,7 @@ bool Staff::UpdateFixingMoveToBrokenDownVehicle(bool firstRun, Ride* ride)
             vehicle = GET_VEHICLE(vehicle->prev_vehicle_on_ride);
         }
 
-        LocationXY16 offset = word_981D6C[direction];
+        CoordsXY offset = DirectionOffsets[direction];
         destination_x = (offset.x * -12) + vehicle->x;
         destination_y = (offset.y * -12) + vehicle->y;
         destination_tolerance = 2;
@@ -2333,17 +2357,13 @@ bool Staff::UpdateFixingMoveToStationEnd(bool firstRun, Ride* ride)
             return true;
         }
 
-        LocationXY8 stationPosition = ride->stations[current_ride_station].Start;
-        if (stationPosition.xy == RCT_XY8_UNDEFINED)
+        auto stationPos = ride->stations[current_ride_station].GetStart();
+        if (stationPos.isNull())
         {
             return true;
         }
 
-        uint8_t stationZ = ride->stations[current_ride_station].Height;
-        uint16_t stationX = stationPosition.x * 32;
-        uint16_t stationY = stationPosition.y * 32;
-
-        auto tileElement = map_get_track_element_at(stationX, stationY, stationZ);
+        auto tileElement = map_get_track_element_at(stationPos);
         if (tileElement == nullptr)
         {
             log_error("Couldn't find tile_element");
@@ -2353,20 +2373,20 @@ bool Staff::UpdateFixingMoveToStationEnd(bool firstRun, Ride* ride)
         int32_t trackDirection = tileElement->GetDirection();
         CoordsXY offset = _StationFixingOffsets[trackDirection];
 
-        stationX += 16 + offset.x;
+        stationPos.x += 16 + offset.x;
         if (offset.x == 0)
         {
-            stationX = destination_x;
+            stationPos.x = destination_x;
         }
 
-        stationY += 16 + offset.y;
+        stationPos.y += 16 + offset.y;
         if (offset.y == 0)
         {
-            stationY = destination_y;
+            stationPos.y = destination_y;
         }
 
-        destination_x = stationX;
-        destination_y = stationY;
+        destination_x = stationPos.x;
+        destination_y = stationPos.y;
         destination_tolerance = 2;
     }
 
@@ -2425,18 +2445,16 @@ bool Staff::UpdateFixingMoveToStationStart(bool firstRun, Ride* ride)
             return true;
         }
 
-        LocationXY8 stationPosition = ride->stations[current_ride_station].Start;
-        if (stationPosition.xy == RCT_XY8_UNDEFINED)
+        auto stationPosition = ride->stations[current_ride_station].GetStart();
+        if (stationPosition.isNull())
         {
             return true;
         }
 
-        uint8_t stationZ = ride->stations[current_ride_station].Height;
-
         CoordsXYE input;
-        input.x = stationPosition.x * 32;
-        input.y = stationPosition.y * 32;
-        input.element = map_get_track_element_at_from_ride(input.x, input.y, stationZ, current_ride);
+        input.x = stationPosition.x;
+        input.y = stationPosition.y;
+        input.element = map_get_track_element_at_from_ride({ input.x, input.y, stationPosition.z }, current_ride);
         if (input.element == nullptr)
         {
             return true;
@@ -2592,7 +2610,7 @@ bool Staff::UpdateFixingMoveToStationExit(bool firstRun, Ride* ride)
         stationX += 16;
         stationY += 16;
 
-        LocationXY16 stationPlatformDirection = word_981D6C[direction];
+        CoordsXY stationPlatformDirection = DirectionOffsets[direction];
         stationX += stationPlatformDirection.x * 20;
         stationY += stationPlatformDirection.y * 20;
 
@@ -2683,7 +2701,7 @@ bool Staff::UpdateFixingLeaveByEntranceExit(bool firstRun, Ride* ride)
         exitX += 16;
         exitY += 16;
 
-        LocationXY16 ebx_direction = word_981D6C[direction];
+        CoordsXY ebx_direction = DirectionOffsets[direction];
         exitX -= ebx_direction.x * 19;
         exitY -= ebx_direction.y * 19;
 
@@ -2695,7 +2713,7 @@ bool Staff::UpdateFixingLeaveByEntranceExit(bool firstRun, Ride* ride)
     int16_t xy_distance;
     if (auto loc = UpdateAction(xy_distance))
     {
-        uint16_t stationHeight = ride->stations[current_ride_station].Height * 8;
+        uint16_t stationHeight = ride->stations[current_ride_station].GetBaseZ();
 
         if (xy_distance >= 16)
         {

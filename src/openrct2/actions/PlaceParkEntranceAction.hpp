@@ -57,7 +57,7 @@ public:
         }
 
         auto res = std::make_unique<GameActionResult>();
-        res->ExpenditureType = RCT_EXPENDITURE_TYPE_LAND_PURCHASE;
+        res->Expenditure = ExpenditureType::LandPurchase;
         res->Position = { _loc.x, _loc.y, _loc.z };
 
         if (!map_check_free_elements_and_reorganise(3))
@@ -79,13 +79,12 @@ public:
 
         int8_t zLow = _loc.z / 8;
         int8_t zHigh = zLow + 12;
-        LocationXY16 entranceLoc = { (int16_t)_loc.x, (int16_t)_loc.y };
+        CoordsXYZ entranceLoc = _loc;
         for (uint8_t index = 0; index < 3; index++)
         {
             if (index == 1)
             {
-                entranceLoc.x += CoordsDirectionDelta[(_loc.direction - 1) & 0x3].x;
-                entranceLoc.y += CoordsDirectionDelta[(_loc.direction - 1) & 0x3].y;
+                entranceLoc += CoordsDirectionDelta[(_loc.direction - 1) & 0x3];
             }
             else if (index == 2)
             {
@@ -93,14 +92,14 @@ public:
                 entranceLoc.y += CoordsDirectionDelta[(_loc.direction + 1) & 0x3].y * 2;
             }
 
-            if (!map_can_construct_at(entranceLoc.x, entranceLoc.y, zLow, zHigh, { 0b1111, 0 }))
+            if (!map_can_construct_at({ entranceLoc, zLow * 8, zHigh * 8 }, { 0b1111, 0 }))
             {
                 return std::make_unique<GameActionResult>(
                     GA_ERROR::NO_CLEARANCE, STR_CANT_BUILD_PARK_ENTRANCE_HERE, gGameCommandErrorText, gCommonFormatArgs);
             }
 
             // Check that entrance element does not already exist at this location
-            EntranceElement* entranceElement = map_get_park_entrance_element_at(entranceLoc.x, entranceLoc.y, zLow, false);
+            EntranceElement* entranceElement = map_get_park_entrance_element_at(entranceLoc, false);
             if (entranceElement != nullptr)
             {
                 return std::make_unique<GameActionResult>(
@@ -114,7 +113,7 @@ public:
     GameActionResult::Ptr Execute() const override
     {
         auto res = std::make_unique<GameActionResult>();
-        res->ExpenditureType = RCT_EXPENDITURE_TYPE_LAND_PURCHASE;
+        res->Expenditure = ExpenditureType::LandPurchase;
         res->Position = CoordsXYZ{ _loc.x, _loc.y, _loc.z };
 
         uint32_t flags = GetFlags();
@@ -172,7 +171,7 @@ public:
 
             if (!(flags & GAME_COMMAND_FLAG_GHOST))
             {
-                footpath_connect_edges(entranceLoc.x, entranceLoc.y, newElement, 1);
+                footpath_connect_edges(entranceLoc, newElement, GAME_COMMAND_FLAG_APPLY);
             }
 
             update_park_fences(entranceLoc);
@@ -181,11 +180,11 @@ public:
             update_park_fences({ entranceLoc.x, entranceLoc.y - 32 });
             update_park_fences({ entranceLoc.x, entranceLoc.y + 32 });
 
-            map_invalidate_tile(entranceLoc.x, entranceLoc.y, newElement->base_height * 8, newElement->clearance_height * 8);
+            map_invalidate_tile({ entranceLoc, newElement->GetBaseZ(), newElement->GetClearanceZ() });
 
             if (index == 0)
             {
-                map_animation_create(MAP_ANIMATION_TYPE_PARK_ENTRANCE, entranceLoc.x, entranceLoc.y, zLow);
+                map_animation_create(MAP_ANIMATION_TYPE_PARK_ENTRANCE, { entranceLoc, zLow * 8 });
             }
         }
 

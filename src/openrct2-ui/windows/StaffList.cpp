@@ -344,10 +344,10 @@ static void window_staff_list_tooldown(rct_window* w, rct_widgetindex widgetInde
         TileElement* tileElement;
         CoordsXY footpathCoords;
         footpath_get_coordinates_from_pos(screenCoords, &footpathCoords.x, &footpathCoords.y, &direction, &tileElement);
-        if (footpathCoords.x == LOCATION_NULL)
+        if (footpathCoords.isNull())
             return;
 
-        bool isPatrolAreaSet = staff_is_patrol_area_set(200 + selectedPeepType, footpathCoords.x, footpathCoords.y);
+        bool isPatrolAreaSet = staff_is_patrol_area_set_for_type(static_cast<STAFF_TYPE>(selectedPeepType), footpathCoords);
 
         uint16_t spriteIndex;
         Peep *peep, *closestPeep = nullptr;
@@ -614,7 +614,7 @@ void window_staff_list_paint(rct_window* w, rct_drawpixelinfo* dpi)
 
     if (!(gParkFlags & PARK_FLAGS_NO_MONEY))
     {
-        set_format_arg(0, money32, wage_table[selectedTab]);
+        set_format_arg(0, money32, gStaffWageTable[selectedTab]);
         gfx_draw_string_left(dpi, STR_COST_PER_MONTH, gCommonFormatArgs, COLOUR_BLACK, w->x + w->width - 155, w->y + 0x20);
     }
 

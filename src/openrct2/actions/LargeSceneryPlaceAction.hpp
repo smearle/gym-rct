@@ -17,6 +17,7 @@
 #include "../world/LargeScenery.h"
 #include "../world/MapAnimation.h"
 #include "../world/Scenery.h"
+#include "../world/Surface.h"
 #include "GameAction.h"
 
 class LargeSceneryPlaceActionResult final : public GameActionResult
@@ -88,7 +89,7 @@ public:
     {
         auto res = std::make_unique<LargeSceneryPlaceActionResult>();
         res->ErrorTitle = STR_CANT_POSITION_THIS_HERE;
-        res->ExpenditureType = RCT_EXPENDITURE_TYPE_LANDSCAPING;
+        res->Expenditure = ExpenditureType::Landscaping;
         int16_t surfaceHeight = tile_element_height(_loc);
         res->Position.x = _loc.x + 16;
         res->Position.y = _loc.y + 16;
@@ -153,10 +154,7 @@ public:
         uint8_t tileNum = 0;
         for (rct_large_scenery_tile* tile = sceneryEntry->large_scenery.tiles; tile->x_offset != -1; tile++, tileNum++)
         {
-            auto tempX = tile->x_offset;
-            auto tempY = tile->y_offset;
-            rotate_map_coordinates(&tempX, &tempY, _loc.direction);
-            CoordsXY curTile = { tempX, tempY };
+            auto curTile = CoordsXY{ tile->x_offset, tile->y_offset }.Rotate(_loc.direction);
 
             curTile.x += _loc.x;
             curTile.y += _loc.y;
@@ -166,7 +164,7 @@ public:
 
             QuarterTile quarterTile = QuarterTile{ static_cast<uint8_t>(tile->flags >> 12), 0 }.Rotate(_loc.direction);
             if (!map_can_construct_with_clear_at(
-                    curTile.x, curTile.y, zLow, zHigh, &map_place_scenery_clear_func, quarterTile, GetFlags(), &supportsCost,
+                    { curTile, zLow * 8, zHigh * 8 }, &map_place_scenery_clear_func, quarterTile, GetFlags(), &supportsCost,
                     CREATE_CROSSING_MODE_NONE))
             {
                 return std::make_unique<LargeSceneryPlaceActionResult>(
@@ -285,10 +283,7 @@ public:
         uint8_t tileNum = 0;
         for (rct_large_scenery_tile* tile = sceneryEntry->large_scenery.tiles; tile->x_offset != -1; tile++, tileNum++)
         {
-            auto tempX = tile->x_offset;
-            auto tempY = tile->y_offset;
-            rotate_map_coordinates(&tempX, &tempY, _loc.direction);
-            CoordsXY curTile = { tempX, tempY };
+            auto curTile = CoordsXY{ tile->x_offset, tile->y_offset }.Rotate(_loc.direction);
 
             curTile.x += _loc.x;
             curTile.y += _loc.y;
@@ -298,7 +293,7 @@ public:
 
             QuarterTile quarterTile = QuarterTile{ static_cast<uint8_t>(tile->flags >> 12), 0 }.Rotate(_loc.direction);
             if (!map_can_construct_with_clear_at(
-                    curTile.x, curTile.y, zLow, zHigh, &map_place_scenery_clear_func, quarterTile, GetFlags(), &supportsCost,
+                    { curTile, zLow * 8, zHigh * 8 }, &map_place_scenery_clear_func, quarterTile, GetFlags(), &supportsCost,
                     CREATE_CROSSING_MODE_NONE))
             {
                 return std::make_unique<LargeSceneryPlaceActionResult>(
@@ -309,17 +304,17 @@ public:
 
             if (!(GetFlags() & GAME_COMMAND_FLAG_GHOST))
             {
-                footpath_remove_litter(curTile.x, curTile.y, zLow * 8);
+                footpath_remove_litter({ curTile, zLow * COORDS_Z_STEP });
                 if (!gCheatsDisableClearanceChecks)
                 {
-                    wall_remove_at(curTile.x, curTile.y, zLow * 8, zHigh * 8);
+                    wall_remove_at({ curTile, zLow * 8, zHigh * 8 });
                 }
             }
 
             TileElement* newTileElement = tile_element_insert(
                 { curTile.x / 32, curTile.y / 32, zLow }, quarterTile.GetBaseQuarterOccupied());
             Guard::Assert(newTileElement != nullptr);
-            map_animation_create(MAP_ANIMATION_TYPE_LARGE_SCENERY, curTile.x, curTile.y, zLow);
+            map_animation_create(MAP_ANIMATION_TYPE_LARGE_SCENERY, { curTile, zLow * 8 });
             newTileElement->SetType(TILE_ELEMENT_TYPE_LARGE_SCENERY);
             newTileElement->clearance_height = zHigh;
             auto newSceneryElement = newTileElement->AsLargeScenery();
@@ -330,7 +325,7 @@ public:
             {
                 res->tileElement = newTileElement;
             }
-            map_invalidate_tile_full(curTile.x, curTile.y);
+            map_invalidate_tile_full(curTile);
         }
 
         // Force ride construction to recheck area
@@ -356,10 +351,7 @@ private:
         int16_t maxHeight = -1;
         for (rct_large_scenery_tile* tile = tiles; tile->x_offset != -1; tile++)
         {
-            auto tempX = tile->x_offset;
-            auto tempY = tile->y_offset;
-            rotate_map_coordinates(&tempX, &tempY, _loc.direction);
-            CoordsXY curTile = { tempX, tempY };
+            auto curTile = CoordsXY{ tile->x_offset, tile->y_offset }.Rotate(_loc.direction);
 
             curTile.x += _loc.x;
             curTile.y += _loc.y;
@@ -373,21 +365,21 @@ private:
             if (surfaceElement == nullptr)
                 continue;
 
-            int32_t height = surfaceElement->base_height * 8;
+            int32_t baseZ = surfaceElement->GetBaseZ();
             int32_t slope = surfaceElement->GetSlope();
 
-            if (slope & 0xF)
+            if ((slope & TILE_ELEMENT_SLOPE_ALL_CORNERS_UP) != TILE_ELEMENT_SLOPE_FLAT)
             {
-                height += 16;
-                if (slope & 0x10)
+                baseZ += LAND_HEIGHT_STEP;
+                if (slope & TILE_ELEMENT_SLOPE_DOUBLE_HEIGHT)
                 {
-                    height += 16;
+                    baseZ += LAND_HEIGHT_STEP;
                 }
             }
 
-            if (height > maxHeight)
+            if (baseZ > maxHeight)
             {
-                maxHeight = height;
+                maxHeight = baseZ;
             }
         }
         return maxHeight;

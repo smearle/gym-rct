@@ -54,21 +54,12 @@ paint_entry* gNextFreePaintStruct;
 uint8_t gCurrentRotation;
 
 static uint32_t _currentImageType;
-
-struct InteractionInfo
+InteractionInfo::InteractionInfo(const paint_struct* ps)
+    : Loc(ps->map_x, ps->map_y)
+    , Element(ps->tileElement)
+    , SpriteType(ps->sprite_type)
 {
-    InteractionInfo() = default;
-    InteractionInfo(const paint_struct* ps)
-        : Loc(ps->map_x, ps->map_y)
-        , Element(ps->tileElement)
-        , SpriteType(ps->sprite_type)
-    {
-    }
-    CoordsXY Loc;
-    TileElement* Element = nullptr;
-    uint8_t SpriteType;
-};
-
+}
 static void viewport_paint_weather_gloom(rct_drawpixelinfo* dpi);
 
 /**
@@ -119,7 +110,7 @@ std::optional<ScreenCoordsXY> centre_2d_coordinates(CoordsXYZ loc, rct_viewport*
     // If the start location was invalid
     // propagate the invalid location to the output.
     // This fixes a bug that caused the game to enter an infinite loop.
-    if (loc.x == LOCATION_NULL)
+    if (loc.isNull())
     {
         return std::nullopt;
     }
@@ -996,11 +987,11 @@ static void viewport_paint_weather_gloom(rct_drawpixelinfo* dpi)
  *
  *  rct2: 0x0068958D
  */
-CoordsXY screen_pos_to_map_pos(ScreenCoordsXY screenCoords, int32_t* direction)
+std::optional<CoordsXY> screen_pos_to_map_pos(ScreenCoordsXY screenCoords, int32_t* direction)
 {
     auto mapCoords = screen_get_map_xy(screenCoords, nullptr);
     if (!mapCoords)
-        return {};
+        return std::nullopt;
 
     int32_t my_direction;
     int32_t dist_from_centre_x = abs(mapCoords->x % 32);
@@ -1037,16 +1028,14 @@ CoordsXY screen_pos_to_map_pos(ScreenCoordsXY screenCoords, int32_t* direction)
         }
     }
 
-    mapCoords->x = mapCoords->x & ~0x1F;
-    mapCoords->y = mapCoords->y & ~0x1F;
     if (direction != nullptr)
         *direction = my_direction;
-    return *mapCoords;
+    return { mapCoords->ToTileStart() };
 }
 
-LocationXY16 screen_coord_to_viewport_coord(rct_viewport* viewport, ScreenCoordsXY screenCoords)
+ScreenCoordsXY screen_coord_to_viewport_coord(rct_viewport* viewport, ScreenCoordsXY screenCoords)
 {
-    LocationXY16 ret;
+    ScreenCoordsXY ret;
     ret.x = ((screenCoords.x - viewport->x) << viewport->zoom) + viewport->view_x;
     ret.y = ((screenCoords.y - viewport->y) << viewport->zoom) + viewport->view_y;
     return ret;
@@ -1568,7 +1557,7 @@ static bool is_sprite_interacted_with(rct_drawpixelinfo* dpi, int32_t imageId, i
  *
  *  rct2: 0x0068862C
  */
-static InteractionInfo set_interaction_info_from_paint_session(paint_session* session, uint16_t filter)
+InteractionInfo set_interaction_info_from_paint_session(paint_session* session, uint16_t filter)
 {
     paint_struct* ps = &session->PaintHead;
     rct_drawpixelinfo* dpi = &session->DPI;
@@ -1757,29 +1746,31 @@ std::optional<CoordsXY> screen_get_map_xy(ScreenCoordsXY screenCoords, rct_viewp
 {
     int32_t interactionType;
     rct_viewport* myViewport = nullptr;
-    CoordsXY map_pos;
+    CoordsXY tileLoc;
+    // This will get the tile location but we will need the more accuracy
     get_map_coordinates_from_pos(
-        screenCoords, VIEWPORT_INTERACTION_MASK_TERRAIN, map_pos, &interactionType, nullptr, &myViewport);
+        screenCoords, VIEWPORT_INTERACTION_MASK_TERRAIN, tileLoc, &interactionType, nullptr, &myViewport);
     if (interactionType == VIEWPORT_INTERACTION_ITEM_NONE)
     {
         return std::nullopt;
     }
 
-    LocationXY16 start_vp_pos = screen_coord_to_viewport_coord(myViewport, screenCoords);
-    CoordsXY modifiedPos = { map_pos.x + 16, map_pos.y + 16 };
+    auto start_vp_pos = screen_coord_to_viewport_coord(myViewport, screenCoords);
+    CoordsXY cursorMapPos = { tileLoc.x + 16, tileLoc.y + 16 };
 
+    // Iterates the cursor location to work out exactly where on the tile it is
     for (int32_t i = 0; i < 5; i++)
     {
-        int32_t z = tile_element_height(map_pos);
-        modifiedPos = viewport_coord_to_map_coord(start_vp_pos.x, start_vp_pos.y, z);
-        modifiedPos.x = std::clamp<int32_t>(modifiedPos.x, map_pos.x, map_pos.x + 31);
-        modifiedPos.y = std::clamp<int32_t>(modifiedPos.y, map_pos.y, map_pos.y + 31);
+        int32_t z = tile_element_height(cursorMapPos);
+        cursorMapPos = viewport_coord_to_map_coord(start_vp_pos.x, start_vp_pos.y, z);
+        cursorMapPos.x = std::clamp(cursorMapPos.x, tileLoc.x, tileLoc.x + 31);
+        cursorMapPos.y = std::clamp(cursorMapPos.y, tileLoc.y, tileLoc.y + 31);
     }
 
     if (viewport != nullptr)
         *viewport = myViewport;
 
-    return modifiedPos;
+    return cursorMapPos;
 }
 
 /**
@@ -1814,8 +1805,8 @@ std::optional<CoordsXY> screen_get_map_xy_quadrant(ScreenCoordsXY screenCoords, 
     if (!mapCoords)
         return std::nullopt;
 
-    *quadrant = map_get_tile_quadrant(mapCoords->x, mapCoords->y);
-    return CoordsXY(floor2(mapCoords->x, 32), floor2(mapCoords->y, 32));
+    *quadrant = map_get_tile_quadrant(*mapCoords);
+    return mapCoords->ToTileStart();
 }
 
 /**
@@ -1828,8 +1819,8 @@ std::optional<CoordsXY> screen_get_map_xy_quadrant_with_z(ScreenCoordsXY screenC
     if (!mapCoords)
         return std::nullopt;
 
-    *quadrant = map_get_tile_quadrant(mapCoords->x, mapCoords->y);
-    return CoordsXY(floor2(mapCoords->x, 32), floor2(mapCoords->y, 32));
+    *quadrant = map_get_tile_quadrant(*mapCoords);
+    return mapCoords->ToTileStart();
 }
 
 /**
@@ -1842,8 +1833,8 @@ std::optional<CoordsXY> screen_get_map_xy_side(ScreenCoordsXY screenCoords, uint
     if (!mapCoords)
         return std::nullopt;
 
-    *side = map_get_tile_side(mapCoords->x, mapCoords->y);
-    return CoordsXY(floor2(mapCoords->x, 32), floor2(mapCoords->y, 32));
+    *side = map_get_tile_side(*mapCoords);
+    return mapCoords->ToTileStart();
 }
 
 /**
@@ -1856,8 +1847,8 @@ std::optional<CoordsXY> screen_get_map_xy_side_with_z(ScreenCoordsXY screenCoord
     if (!mapCoords)
         return std::nullopt;
 
-    *side = map_get_tile_side(mapCoords->x, mapCoords->y);
-    return CoordsXY(floor2(mapCoords->x, 32), floor2(mapCoords->y, 32));
+    *side = map_get_tile_side(*mapCoords);
+    return mapCoords->ToTileStart();
 }
 
 /**

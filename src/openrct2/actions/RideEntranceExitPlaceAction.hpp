@@ -99,18 +99,16 @@ public:
             }
         }
 
-        auto z = ride->stations[_stationNum].Height * 8;
-        gCommandPosition.z = z;
-
+        auto z = ride->stations[_stationNum].GetBaseZ();
         if (!gCheatsSandboxMode && !map_is_location_owned({ _loc, z }))
         {
             return MakeResult(GA_ERROR::NOT_OWNED, errorTitle);
         }
 
-        int8_t clear_z = (z / 8) + (_isExit ? 5 : 7);
+        auto clear_z = (z / 8) + (_isExit ? 5 : 7);
         auto cost = MONEY32_UNDEFINED;
         if (!map_can_construct_with_clear_at(
-                _loc.x, _loc.y, z / 8, clear_z, &map_place_non_scenery_clear_func, { 0b1111, 0 }, GetFlags(), &cost,
+                { _loc, z, clear_z * 8 }, &map_place_non_scenery_clear_func, { 0b1111, 0 }, GetFlags(), &cost,
                 CREATE_CROSSING_MODE_NONE))
         {
             return MakeResult(GA_ERROR::NO_CLEARANCE, errorTitle, gGameCommandErrorText, gCommonFormatArgs);
@@ -129,8 +127,8 @@ public:
         auto res = MakeResult();
         res->Position.x = _loc.x + 16;
         res->Position.y = _loc.y + 16;
-        res->Position.z = tile_element_height(_loc);
-        res->ExpenditureType = RCT_EXPENDITURE_TYPE_RIDE_CONSTRUCTION;
+        res->Position.z = z;
+        res->Expenditure = ExpenditureType::RideConstruction;
         return res;
     }
 
@@ -168,19 +166,17 @@ public:
             }
         }
 
-        auto z = ride->stations[_stationNum].Height * 8;
-        gCommandPosition.z = z;
-
+        auto z = ride->stations[_stationNum].GetBaseZ();
         if (!(GetFlags() & GAME_COMMAND_FLAG_ALLOW_DURING_PAUSED) && !(GetFlags() & GAME_COMMAND_FLAG_GHOST))
         {
-            footpath_remove_litter(_loc.x, _loc.y, z);
-            wall_remove_at_z(_loc.x, _loc.y, z);
+            footpath_remove_litter({ _loc, z });
+            wall_remove_at_z({ _loc, z });
         }
 
-        int8_t clear_z = (z / 8) + (_isExit ? 5 : 7);
+        auto clear_z = (z / 8) + (_isExit ? 5 : 7);
         auto cost = MONEY32_UNDEFINED;
         if (!map_can_construct_with_clear_at(
-                _loc.x, _loc.y, z / 8, clear_z, &map_place_non_scenery_clear_func, { 0b1111, 0 },
+                { _loc, z, clear_z * 8 }, &map_place_non_scenery_clear_func, { 0b1111, 0 },
                 GetFlags() | GAME_COMMAND_FLAG_APPLY, &cost, CREATE_CROSSING_MODE_NONE))
         {
             return MakeResult(GA_ERROR::NO_CLEARANCE, errorTitle, gGameCommandErrorText, gCommonFormatArgs);
@@ -189,8 +185,8 @@ public:
         auto res = MakeResult();
         res->Position.x = _loc.x + 16;
         res->Position.y = _loc.y + 16;
-        res->Position.z = tile_element_height(_loc);
-        res->ExpenditureType = RCT_EXPENDITURE_TYPE_RIDE_CONSTRUCTION;
+        res->Position.z = z;
+        res->Expenditure = ExpenditureType::RideConstruction;
 
         TileElement* tileElement = tile_element_insert({ _loc.x / 32, _loc.y / 32, z / 8 }, 0b1111);
         assert(tileElement != nullptr);
@@ -218,7 +214,7 @@ public:
             ride->stations[_stationNum].LastPeepInQueue = SPRITE_INDEX_NULL;
             ride->stations[_stationNum].QueueLength = 0;
 
-            map_animation_create(MAP_ANIMATION_TYPE_RIDE_ENTRANCE, _loc.x, _loc.y, z / 8);
+            map_animation_create(MAP_ANIMATION_TYPE_RIDE_ENTRANCE, { _loc, z });
         }
 
         footpath_queue_chain_reset();
@@ -228,10 +224,10 @@ public:
             maze_entrance_hedge_removal(_loc.x, _loc.y, tileElement);
         }
 
-        footpath_connect_edges(_loc.x, _loc.y, tileElement, GetFlags());
+        footpath_connect_edges(_loc, tileElement, GetFlags());
         footpath_update_queue_chains();
 
-        map_invalidate_tile_full(_loc.x, _loc.y);
+        map_invalidate_tile_full(_loc);
 
         return res;
     }
@@ -254,7 +250,7 @@ public:
         int16_t clearZ = baseZ + (isExit ? 5 : 7);
         auto cost = MONEY32_UNDEFINED;
         if (!map_can_construct_with_clear_at(
-                loc.x, loc.y, baseZ, clearZ, &map_place_non_scenery_clear_func, { 0b1111, 0 }, 0, &cost,
+                { loc, baseZ * 8, clearZ * 8 }, &map_place_non_scenery_clear_func, { 0b1111, 0 }, 0, &cost,
                 CREATE_CROSSING_MODE_NONE))
         {
             return MakeResult(GA_ERROR::NO_CLEARANCE, errorTitle, gGameCommandErrorText, gCommonFormatArgs);
@@ -273,7 +269,7 @@ public:
         res->Position.x = loc.x + 16;
         res->Position.y = loc.y + 16;
         res->Position.z = tile_element_height(loc);
-        res->ExpenditureType = RCT_EXPENDITURE_TYPE_RIDE_CONSTRUCTION;
+        res->Expenditure = ExpenditureType::RideConstruction;
         return res;
     }
 };

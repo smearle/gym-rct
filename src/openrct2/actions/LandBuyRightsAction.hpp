@@ -96,12 +96,12 @@ private:
         centre.z = tile_element_height(centre);
 
         res->Position = centre;
-        res->ExpenditureType = RCT_EXPENDITURE_TYPE_LAND_PURCHASE;
+        res->Expenditure = ExpenditureType::LandPurchase;
 
         // Game command modified to accept selection size
-        for (auto y = validRange.GetTop(); y <= validRange.GetBottom(); y += 32)
+        for (auto y = validRange.GetTop(); y <= validRange.GetBottom(); y += COORDS_XY_STEP)
         {
-            for (auto x = validRange.GetLeft(); x <= validRange.GetRight(); x += 32)
+            for (auto x = validRange.GetLeft(); x <= validRange.GetRight(); x += COORDS_XY_STEP)
             {
                 auto result = map_buy_land_rights_for_tile({ x, y }, isExecuting);
                 if (result->Error == GA_ERROR::OK)
@@ -169,8 +169,8 @@ private:
                 if (isExecuting)
                 {
                     surfaceElement->SetOwnership(surfaceElement->GetOwnership() | OWNERSHIP_CONSTRUCTION_RIGHTS_OWNED);
-                    uint16_t baseHeight = surfaceElement->base_height * 8;
-                    map_invalidate_tile(loc.x, loc.y, baseHeight, baseHeight + 16);
+                    uint16_t baseZ = surfaceElement->GetBaseZ();
+                    map_invalidate_tile({ loc, baseZ, baseZ + 16 });
                 }
                 res->Cost = gConstructionRightsPrice;
                 return res;

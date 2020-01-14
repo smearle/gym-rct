@@ -224,3 +224,23 @@ void TileElementBase::SetOccupiedQuadrants(uint8_t quadrants)
     flags &= ~TILE_ELEMENT_OCCUPIED_QUADRANTS_MASK;
     flags |= (quadrants & TILE_ELEMENT_OCCUPIED_QUADRANTS_MASK);
 }
+
+int32_t TileElementBase::GetBaseZ() const
+{
+    return base_height * 8;
+}
+
+void TileElementBase::SetBaseZ(int32_t newZ)
+{
+    base_height = (newZ / 8);
+}
+
+int32_t TileElementBase::GetClearanceZ() const
+{
+    return clearance_height * 8;
+}
+
+void TileElementBase::SetClearanceZ(int32_t newZ)
+{
+    clearance_height = (newZ / 8);
+}

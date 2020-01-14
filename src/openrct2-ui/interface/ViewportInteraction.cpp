@@ -296,7 +296,8 @@ int32_t viewport_interaction_get_item_right(ScreenCoordsXY screenCoords, viewpor
             }
             else
             {
-                if (!gCheatsSandboxMode && !map_is_location_owned({ info->x, info->y, tileElement->base_height << 4 }))
+                // FIXME: Why does it *2 the value?
+                if (!gCheatsSandboxMode && !map_is_location_owned({ info->x, info->y, tileElement->GetBaseZ() * 2 }))
                 {
                     return info->type = VIEWPORT_INTERACTION_ITEM_NONE;
                 }
@@ -315,7 +316,7 @@ int32_t viewport_interaction_get_item_right(ScreenCoordsXY screenCoords, viewpor
                 stationIndex = tileElement->AsTrack()->GetStationIndex();
 
             for (i = stationIndex; i >= 0; i--)
-                if (ride->stations[i].Start.xy == RCT_XY8_UNDEFINED)
+                if (ride->stations[i].Start.isNull())
                     stationIndex--;
             stationIndex++;
             set_map_tooltip_format_arg(4 + nameArgLen + 2, uint16_t, stationIndex);
@@ -505,7 +506,7 @@ int32_t viewport_interaction_right_click(ScreenCoordsXY screenCoords)
 static void viewport_interaction_remove_scenery(TileElement* tileElement, CoordsXY mapCoords)
 {
     auto removeSceneryAction = SmallSceneryRemoveAction(
-        { mapCoords.x, mapCoords.y, tileElement->base_height * 8 }, tileElement->AsSmallScenery()->GetSceneryQuadrant(),
+        { mapCoords.x, mapCoords.y, tileElement->GetBaseZ() }, tileElement->AsSmallScenery()->GetSceneryQuadrant(),
         tileElement->AsSmallScenery()->GetEntryIndex());
 
     GameActions::Execute(&removeSceneryAction);
@@ -517,24 +518,23 @@ static void viewport_interaction_remove_scenery(TileElement* tileElement, Coords
  */
 static void viewport_interaction_remove_footpath(TileElement* tileElement, CoordsXY mapCoords)
 {
-    int32_t z;
     rct_window* w;
     TileElement* tileElement2;
 
-    z = tileElement->base_height;
+    auto z = tileElement->GetBaseZ();
 
     w = window_find_by_class(WC_FOOTPATH);
     if (w != nullptr)
         footpath_provisional_update();
 
-    tileElement2 = map_get_first_element_at(mapCoords.x / 32, mapCoords.y / 32);
+    tileElement2 = map_get_first_element_at(mapCoords);
     if (tileElement2 == nullptr)
         return;
     do
     {
-        if (tileElement2->GetType() == TILE_ELEMENT_TYPE_PATH && tileElement2->base_height == z)
+        if (tileElement2->GetType() == TILE_ELEMENT_TYPE_PATH && tileElement2->GetBaseZ() == z)
         {
-            footpath_remove(mapCoords.x, mapCoords.y, z, GAME_COMMAND_FLAG_APPLY);
+            footpath_remove({ mapCoords, z }, GAME_COMMAND_FLAG_APPLY);
             break;
         }
     } while (!(tileElement2++)->IsLastForTile());
@@ -546,7 +546,7 @@ static void viewport_interaction_remove_footpath(TileElement* tileElement, Coord
  */
 static void viewport_interaction_remove_footpath_item(TileElement* tileElement, CoordsXY mapCoords)
 {
-    auto footpathSceneryRemoveAction = FootpathSceneryRemoveAction({ mapCoords.x, mapCoords.y, tileElement->base_height * 8 });
+    auto footpathSceneryRemoveAction = FootpathSceneryRemoveAction({ mapCoords.x, mapCoords.y, tileElement->GetBaseZ() });
     GameActions::Execute(&footpathSceneryRemoveAction);
 }
 
@@ -566,7 +566,7 @@ void viewport_interaction_remove_park_entrance(TileElement* tileElement, CoordsX
             mapCoords -= CoordsDirectionDelta[rotation];
             break;
     }
-    auto parkEntranceRemoveAction = ParkEntranceRemoveAction({ mapCoords.x, mapCoords.y, tileElement->base_height * 8 });
+    auto parkEntranceRemoveAction = ParkEntranceRemoveAction({ mapCoords.x, mapCoords.y, tileElement->GetBaseZ() });
     GameActions::Execute(&parkEntranceRemoveAction);
 }
 
@@ -583,7 +583,7 @@ static void viewport_interaction_remove_park_wall(TileElement* tileElement, Coor
     }
     else
     {
-        CoordsXYZD wallLocation = { mapCoords.x, mapCoords.y, tileElement->base_height * 8, tileElement->GetDirection() };
+        CoordsXYZD wallLocation = { mapCoords.x, mapCoords.y, tileElement->GetBaseZ(), tileElement->GetDirection() };
         auto wallRemoveAction = WallRemoveAction(wallLocation);
         GameActions::Execute(&wallRemoveAction);
     }
@@ -605,7 +605,7 @@ static void viewport_interaction_remove_large_scenery(TileElement* tileElement, 
     else
     {
         auto removeSceneryAction = LargeSceneryRemoveAction(
-            { mapCoords.x, mapCoords.y, tileElement->base_height * 8, tileElement->GetDirection() },
+            { mapCoords.x, mapCoords.y, tileElement->GetBaseZ(), tileElement->GetDirection() },
             tileElement->AsLargeScenery()->GetSequenceIndex());
         GameActions::Execute(&removeSceneryAction);
     }
@@ -670,7 +670,7 @@ CoordsXY sub_68A15E(ScreenCoordsXY screenCoords)
 
     if (interactionType == VIEWPORT_INTERACTION_ITEM_NONE)
     {
-        initialPos.x = LOCATION_NULL;
+        initialPos.setNull();
         return initialPos;
     }
 
@@ -680,7 +680,7 @@ CoordsXY sub_68A15E(ScreenCoordsXY screenCoords)
         waterHeight = tileElement->AsSurface()->GetWaterHeight() << 4;
     }
 
-    LocationXY16 initialVPPos = screen_coord_to_viewport_coord(viewport, screenCoords);
+    auto initialVPPos = screen_coord_to_viewport_coord(viewport, screenCoords);
     CoordsXY mapPos = initialPos + CoordsXY{ 16, 16 };
 
     for (int32_t i = 0; i < 5; i++)
@@ -695,5 +695,5 @@ CoordsXY sub_68A15E(ScreenCoordsXY screenCoords)
         mapPos.y = std::clamp(mapPos.y, initialPos.y, initialPos.y + 31);
     }
 
-    return { mapPos.x & ~0x1F, mapPos.y & ~0x1F };
+    return mapPos.ToTileStart();
 }

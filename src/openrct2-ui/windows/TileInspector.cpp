@@ -576,8 +576,7 @@ static TileElement* window_tile_inspector_get_selected_element(rct_window* w)
     openrct2_assert(
         windowTileInspectorSelectedIndex >= 0 && windowTileInspectorSelectedIndex < windowTileInspectorElementCount,
         "Selected list item out of range");
-    return map_get_first_element_at(windowTileInspectorToolMap.x / 32, windowTileInspectorToolMap.y / 32)
-        + windowTileInspectorSelectedIndex;
+    return map_get_first_element_at(windowTileInspectorToolMap) + windowTileInspectorSelectedIndex;
 }
 
 static void window_tile_inspector_select_element_from_list(rct_window* w, int32_t index)
@@ -599,7 +598,7 @@ static void window_tile_inspector_load_tile(rct_window* w, TileElement* elementT
     windowTileInspectorSelectedIndex = -1;
     w->scrolls[0].v_top = 0;
 
-    TileElement* element = map_get_first_element_at(windowTileInspectorToolMap.x / 32, windowTileInspectorToolMap.y / 32);
+    TileElement* element = map_get_first_element_at(windowTileInspectorToolMap);
     int16_t numItems = 0;
     do
     {
@@ -1003,8 +1002,7 @@ static void window_tile_inspector_mousedown(rct_window* w, rct_widgetindex widge
     {
         case WIDX_SPINNER_X_INCREASE:
             windowTileInspectorTileX = std::min<uint32_t>(windowTileInspectorTileX + 1, MAXIMUM_MAP_SIZE_TECHNICAL - 1);
-            windowTileInspectorToolMap.x = std::min<int32_t>(
-                windowTileInspectorToolMap.x + 32, (MAXIMUM_MAP_SIZE_TECHNICAL - 1) * 32);
+            windowTileInspectorToolMap.x = std::min<int32_t>(windowTileInspectorToolMap.x + 32, MAXIMUM_TILE_START_XY);
             window_tile_inspector_load_tile(w, nullptr);
             break;
         case WIDX_SPINNER_X_DECREASE:
@@ -1014,8 +1012,7 @@ static void window_tile_inspector_mousedown(rct_window* w, rct_widgetindex widge
             break;
         case WIDX_SPINNER_Y_INCREASE:
             windowTileInspectorTileY = std::min<uint32_t>(windowTileInspectorTileY + 1, MAXIMUM_MAP_SIZE_TECHNICAL - 1);
-            windowTileInspectorToolMap.y = std::min<int32_t>(
-                windowTileInspectorToolMap.y + 32, (MAXIMUM_MAP_SIZE_TECHNICAL - 1) * 32);
+            windowTileInspectorToolMap.y = std::min<int32_t>(windowTileInspectorToolMap.y + 32, MAXIMUM_TILE_START_XY);
             window_tile_inspector_load_tile(w, nullptr);
             break;
         case WIDX_SPINNER_Y_DECREASE:
@@ -1224,6 +1221,7 @@ static void window_tile_inspector_tool_update(rct_window* w, rct_widgetindex wid
 
     CoordsXY mapCoords;
     TileElement* clickedElement = nullptr;
+    bool mouseOnViewport = false;
     if (input_test_place_object_modifier(PLACE_OBJECT_MODIFIER_COPY_Z))
     {
         get_map_coordinates_from_pos(screenCoords, ViewportInteractionFlags, mapCoords, nullptr, &clickedElement, nullptr);
@@ -1232,18 +1230,21 @@ static void window_tile_inspector_tool_update(rct_window* w, rct_widgetindex wid
     // Even if Ctrl was pressed, fall back to normal selection when there was nothing under the cursor
     if (clickedElement == nullptr)
     {
-        mapCoords = screen_pos_to_map_pos(screenCoords, nullptr);
+        auto mouseCoords = screen_pos_to_map_pos(screenCoords, nullptr);
+        if (mouseCoords)
+        {
+            mouseOnViewport = true;
+            mapCoords = *mouseCoords;
+        }
     }
 
-    if (mapCoords.x != LOCATION_NULL)
+    if (mouseOnViewport)
     {
-        gMapSelectPositionA.x = gMapSelectPositionB.x = mapCoords.x;
-        gMapSelectPositionA.y = gMapSelectPositionB.y = mapCoords.y;
+        gMapSelectPositionA = gMapSelectPositionB = mapCoords;
     }
     else if (windowTileInspectorTileSelected)
     {
-        gMapSelectPositionA.x = gMapSelectPositionB.x = windowTileInspectorToolMap.x;
-        gMapSelectPositionA.y = gMapSelectPositionB.y = windowTileInspectorToolMap.y;
+        gMapSelectPositionA = gMapSelectPositionB = windowTileInspectorToolMap;
     }
     else
     {
@@ -1279,13 +1280,14 @@ static void window_tile_inspector_update_selected_tile(rct_window* w, ScreenCoor
     // Even if Ctrl was pressed, fall back to normal selection when there was nothing under the cursor
     if (clickedElement == nullptr)
     {
-        mapCoords = screen_pos_to_map_pos(screenCoords, nullptr);
+        auto mouseCoords = screen_pos_to_map_pos(screenCoords, nullptr);
 
-        if (mapCoords.x == LOCATION_NULL)
+        if (!mouseCoords)
         {
             return;
         }
 
+        mapCoords = *mouseCoords;
         // Tile is already selected
         if (windowTileInspectorTileSelected && mapCoords.x == windowTileInspectorToolMap.x
             && mapCoords.y == windowTileInspectorToolMap.y)
@@ -1972,7 +1974,7 @@ static void window_tile_inspector_paint(rct_window* w, rct_drawpixelinfo* dpi)
                 {
                     // TODO: Make this work with Left/Right park entrance parts
                     int16_t parkEntranceIndex = park_entrance_get_index(
-                        windowTileInspectorToolMap.x, windowTileInspectorToolMap.y, tileElement->base_height * 8);
+                        windowTileInspectorToolMap.x, windowTileInspectorToolMap.y, tileElement->GetBaseZ());
                     gfx_draw_string_left(
                         dpi, STR_TILE_INSPECTOR_ENTRANCE_ENTRANCE_ID, &parkEntranceIndex, COLOUR_WHITE, x, y + 11);
                 }
@@ -2163,8 +2165,7 @@ static void window_tile_inspector_scrollpaint(rct_window* w, rct_drawpixelinfo* 
     if (!windowTileInspectorTileSelected)
         return;
 
-    const TileElement* tileElement = map_get_first_element_at(
-        windowTileInspectorToolMap.x / 32, windowTileInspectorToolMap.y / 32);
+    const TileElement* tileElement = map_get_first_element_at(windowTileInspectorToolMap);
 
     gCurrentFontSpriteBase = FONT_SPRITE_BASE_MEDIUM;
     do

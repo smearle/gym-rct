@@ -1943,7 +1943,7 @@ static void window_ride_construction_mouseup_demolish(rct_window* w)
 
         const rct_preview_track* trackBlock = get_track_def_from_ride_index(
             _currentRideIndex, tileElement->AsTrack()->GetTrackType());
-        z = (tileElement->base_height * 8) - trackBlock->z;
+        z = (tileElement->GetBaseZ()) - trackBlock->z;
         gGotoStartPlacementMode = true;
     }
 
@@ -2122,7 +2122,7 @@ static std::optional<CoordsXY> ride_get_place_position_from_screen_position(Scre
             get_map_coordinates_from_pos(screenCoords, 0xFCCA, mapCoords, &interactionType, &tileElement, &viewport);
             if (interactionType != 0)
             {
-                _trackPlaceCtrlZ = tileElement->base_height * 8;
+                _trackPlaceCtrlZ = tileElement->GetBaseZ();
                 _trackPlaceCtrlState = true;
             }
         }
@@ -2174,16 +2174,16 @@ static std::optional<CoordsXY> ride_get_place_position_from_screen_position(Scre
     if (!_trackPlaceCtrlState)
     {
         mapCoords = sub_68A15E(screenCoords);
-        if (mapCoords.x == LOCATION_NULL)
+        if (mapCoords.isNull())
             return std::nullopt;
 
         _trackPlaceZ = 0;
         if (_trackPlaceShiftState)
         {
-            auto surfaceElement = map_get_surface_element_at(mapCoords.x >> 5, mapCoords.y >> 5);
+            auto surfaceElement = map_get_surface_element_at(mapCoords);
             if (surfaceElement == nullptr)
                 return std::nullopt;
-            auto mapZ = floor2(surfaceElement->base_height * 8, 16);
+            auto mapZ = floor2(surfaceElement->GetBaseZ(), 16);
             mapZ += _trackPlaceShiftZ;
             mapZ = std::max<int16_t>(mapZ, 16);
             _trackPlaceZ = mapZ;
@@ -2212,7 +2212,7 @@ static std::optional<CoordsXY> ride_get_place_position_from_screen_position(Scre
     if (mapCoords.x == LOCATION_NULL)
         return std::nullopt;
 
-    return CoordsXY{ floor2(mapCoords.x, 32), floor2(mapCoords.y, 32) };
+    return mapCoords.ToTileStart();
 }
 
 /**
@@ -2326,9 +2326,9 @@ static void window_ride_construction_paint(rct_window* w, rct_drawpixelinfo* dpi
         return;
 
     ride_id_t rideIndex;
-    int32_t trackType, trackDirection, liftHillAndAlternativeState;
+    int32_t trackType, trackDirection, liftHillAndInvertedState;
     if (window_ride_construction_update_state(
-            &trackType, &trackDirection, &rideIndex, &liftHillAndAlternativeState, nullptr, nullptr, nullptr, nullptr))
+            &trackType, &trackDirection, &rideIndex, &liftHillAndInvertedState, nullptr, nullptr, nullptr, nullptr))
         return;
 
     // Draw track piece
@@ -2339,7 +2339,7 @@ static void window_ride_construction_paint(rct_window* w, rct_drawpixelinfo* dpi
     if (clip_drawpixelinfo(&clipdpi, dpi, x, y, width, height))
     {
         window_ride_construction_draw_track_piece(
-            w, &clipdpi, rideIndex, trackType, trackDirection, liftHillAndAlternativeState, width, height);
+            w, &clipdpi, rideIndex, trackType, trackDirection, liftHillAndInvertedState, width, height);
     }
 
     // Draw cost
@@ -2356,8 +2356,8 @@ static void window_ride_construction_paint(rct_window* w, rct_drawpixelinfo* dpi
 }
 
 static void window_ride_construction_draw_track_piece(
-    rct_window* w, rct_drawpixelinfo* dpi, ride_id_t rideIndex, int32_t trackType, int32_t trackDirection, int32_t unknown,
-    int32_t width, int32_t height)
+    rct_window* w, rct_drawpixelinfo* dpi, ride_id_t rideIndex, int32_t trackType, int32_t trackDirection,
+    int32_t liftHillAndInvertedState, int32_t width, int32_t height)
 {
     auto ride = get_ride(rideIndex);
     if (ride == nullptr)
@@ -2367,37 +2367,30 @@ static void window_ride_construction_draw_track_piece(
     while ((trackBlock + 1)->index != 0xFF)
         trackBlock++;
 
-    int16_t x = trackBlock->x;
-    int16_t z = trackBlock->z;
-    int16_t y = trackBlock->y;
+    CoordsXYZ mapCoords{ trackBlock->x, trackBlock->y, trackBlock->z };
     if (trackBlock->var_09 & 2)
     {
-        x = 0;
-        y = 0;
+        mapCoords.x = 0;
+        mapCoords.y = 0;
     }
 
-    rotate_map_coordinates(&x, &y, trackDirection & 3);
+    auto rotatedMapCoords = mapCoords.Rotate(trackDirection);
     // this is actually case 0, but the other cases all jump to it
-    x = 4112 + (x / 2);
-    y = 4112 + (y / 2);
-    z = 1024 + z;
+    mapCoords.x = 4112 + (rotatedMapCoords.x / 2);
+    mapCoords.y = 4112 + (rotatedMapCoords.y / 2);
+    mapCoords.z = 1024 + mapCoords.z;
 
     int16_t previewZOffset = ride_type_has_flag(ride->type, RIDE_TYPE_FLAG_FLAT_RIDE)
         ? FlatRideTrackDefinitions[trackType].preview_z_offset
         : TrackDefinitions[trackType].preview_z_offset;
-    z -= previewZOffset;
+    mapCoords.z -= previewZOffset;
 
-    const LocationXY16 rotatedCoords = ride_get_rotated_coords(x, y, z);
-    x = rotatedCoords.x;
-    y = rotatedCoords.y;
+    const ScreenCoordsXY rotatedScreenCoords = translate_3d_to_2d_with_z(get_current_rotation(), mapCoords);
 
-    dpi->x += x - width / 2;
-    dpi->y += y - height / 2 - 16;
-    uint32_t d = unknown << 16;
-    d |= rideIndex;
-    d |= trackType << 8;
+    dpi->x += rotatedScreenCoords.x - width / 2;
+    dpi->y += rotatedScreenCoords.y - height / 2 - 16;
 
-    sub_6CBCE2(dpi, rideIndex, trackType, trackDirection, d, { 4096, 4096 }, 1024);
+    sub_6CBCE2(dpi, rideIndex, trackType, trackDirection, liftHillAndInvertedState, { 4096, 4096 }, 1024);
 }
 
 static TileElement _tempTrackTileElement;
@@ -2412,8 +2405,8 @@ static TileElement* _backupTileElementArrays[5];
  * dh: trackType
  */
 static void sub_6CBCE2(
-    rct_drawpixelinfo* dpi, ride_id_t rideIndex, int32_t trackType, int32_t trackDirection, int32_t edx, CoordsXY originCoords,
-    int32_t originZ)
+    rct_drawpixelinfo* dpi, ride_id_t rideIndex, int32_t trackType, int32_t trackDirection, int32_t liftHillAndInvertedState,
+    CoordsXY originCoords, int32_t originZ)
 {
     paint_session* session = paint_session_alloc(dpi, 0);
     trackDirection &= 3;
@@ -2427,10 +2420,10 @@ static void sub_6CBCE2(
     int16_t preserveMapSize = gMapSize;
     int16_t preserveMapSizeMaxXY = gMapSizeMaxXY;
 
-    gMapSizeUnits = 255 * 32;
-    gMapSizeMinus2 = (255 * 32) + 286;
-    gMapSize = 256;
-    gMapSizeMaxXY = (256 * 32) - 1;
+    gMapSizeUnits = MAXIMUM_TILE_START_XY;
+    gMapSizeMinus2 = ((MAXIMUM_MAP_SIZE_TECHNICAL - 1) * 32) + 286;
+    gMapSize = MAXIMUM_MAP_SIZE_TECHNICAL;
+    gMapSizeMaxXY = MAXIMUM_MAP_SIZE_BIG - 1;
 
     auto trackBlock = get_track_def_from_ride(ride, trackType);
     while (trackBlock->index != 255)
@@ -2439,36 +2432,39 @@ static void sub_6CBCE2(
         CoordsXY offsets = { trackBlock->x, trackBlock->y };
         CoordsXY coords = originCoords + offsets.Rotate(trackDirection);
 
-        int32_t baseZ = (originZ + trackBlock->z) >> 3;
-        int32_t clearanceZ = ((trackBlock->var_07 + RideData5[ride->type].clearance_height) >> 3) + baseZ + 4;
+        int32_t baseZ = originZ + trackBlock->z;
+        int32_t clearanceZ = trackBlock->var_07 + RideData5[ride->type].clearance_height + baseZ + (4 * COORDS_Z_STEP);
 
-        int32_t tileX = coords.x >> 5;
-        int32_t tileY = coords.y >> 5;
+        auto centreTileCoords = TileCoordsXY{ coords };
+        auto eastTileCoords = centreTileCoords + TileDirectionDelta[TILE_ELEMENT_DIRECTION_EAST];
+        auto westTileCoords = centreTileCoords + TileDirectionDelta[TILE_ELEMENT_DIRECTION_WEST];
+        auto northTileCoords = centreTileCoords + TileDirectionDelta[TILE_ELEMENT_DIRECTION_NORTH];
+        auto southTileCoords = centreTileCoords + TileDirectionDelta[TILE_ELEMENT_DIRECTION_SOUTH];
 
         // Replace map elements with temporary ones containing track
-        _backupTileElementArrays[0] = map_get_first_element_at(tileX + 0, tileY + 0);
-        _backupTileElementArrays[1] = map_get_first_element_at(tileX + 1, tileY + 0);
-        _backupTileElementArrays[2] = map_get_first_element_at(tileX - 1, tileY + 0);
-        _backupTileElementArrays[3] = map_get_first_element_at(tileX + 0, tileY + 1);
-        _backupTileElementArrays[4] = map_get_first_element_at(tileX + 0, tileY - 1);
-        map_set_tile_elements(tileX + 0, tileY + 0, &_tempTrackTileElement);
-        map_set_tile_elements(tileX + 1, tileY + 0, &_tempSideTrackTileElement);
-        map_set_tile_elements(tileX - 1, tileY + 0, &_tempSideTrackTileElement);
-        map_set_tile_elements(tileX + 0, tileY + 1, &_tempSideTrackTileElement);
-        map_set_tile_elements(tileX + 0, tileY - 1, &_tempSideTrackTileElement);
+        _backupTileElementArrays[0] = map_get_first_element_at(centreTileCoords.ToCoordsXY());
+        _backupTileElementArrays[1] = map_get_first_element_at(eastTileCoords.ToCoordsXY());
+        _backupTileElementArrays[2] = map_get_first_element_at(westTileCoords.ToCoordsXY());
+        _backupTileElementArrays[3] = map_get_first_element_at(northTileCoords.ToCoordsXY());
+        _backupTileElementArrays[4] = map_get_first_element_at(southTileCoords.ToCoordsXY());
+        map_set_tile_element(centreTileCoords, &_tempTrackTileElement);
+        map_set_tile_element(eastTileCoords, &_tempSideTrackTileElement);
+        map_set_tile_element(westTileCoords, &_tempSideTrackTileElement);
+        map_set_tile_element(northTileCoords, &_tempSideTrackTileElement);
+        map_set_tile_element(southTileCoords, &_tempSideTrackTileElement);
 
         // Set the temporary track element
         _tempTrackTileElement.SetType(TILE_ELEMENT_TYPE_TRACK);
         _tempTrackTileElement.SetDirection(trackDirection);
-        _tempTrackTileElement.AsTrack()->SetHasChain((edx & 0x10000) != 0);
+        _tempTrackTileElement.AsTrack()->SetHasChain((liftHillAndInvertedState & CONSTRUCTION_LIFT_HILL_SELECTED) != 0);
         _tempTrackTileElement.SetOccupiedQuadrants(quarterTile.GetBaseQuarterOccupied());
         _tempTrackTileElement.SetLastForTile(true);
-        _tempTrackTileElement.base_height = baseZ;
-        _tempTrackTileElement.clearance_height = clearanceZ;
+        _tempTrackTileElement.SetBaseZ(baseZ);
+        _tempTrackTileElement.SetClearanceZ(clearanceZ);
         _tempTrackTileElement.AsTrack()->SetTrackType(trackType);
         _tempTrackTileElement.AsTrack()->SetSequenceIndex(trackBlock->index);
         _tempTrackTileElement.AsTrack()->SetHasCableLift(false);
-        _tempTrackTileElement.AsTrack()->SetInverted((edx & 0x20000) != 0);
+        _tempTrackTileElement.AsTrack()->SetInverted((liftHillAndInvertedState & CONSTRUCTION_INVERTED_TRACK_SELECTED) != 0);
         _tempTrackTileElement.AsTrack()->SetColourScheme(RIDE_COLOUR_SCHEME_MAIN);
         // Skipping seat rotation, should not be necessary for a temporary piece.
         _tempTrackTileElement.AsTrack()->SetRideIndex(rideIndex);
@@ -2477,11 +2473,11 @@ static void sub_6CBCE2(
         sub_68B2B7(session, coords);
 
         // Restore map elements
-        map_set_tile_elements(tileX + 0, tileY + 0, _backupTileElementArrays[0]);
-        map_set_tile_elements(tileX + 1, tileY + 0, _backupTileElementArrays[1]);
-        map_set_tile_elements(tileX - 1, tileY + 0, _backupTileElementArrays[2]);
-        map_set_tile_elements(tileX + 0, tileY + 1, _backupTileElementArrays[3]);
-        map_set_tile_elements(tileX + 0, tileY - 1, _backupTileElementArrays[4]);
+        map_set_tile_element(centreTileCoords, _backupTileElementArrays[0]);
+        map_set_tile_element(eastTileCoords, _backupTileElementArrays[1]);
+        map_set_tile_element(westTileCoords, _backupTileElementArrays[2]);
+        map_set_tile_element(northTileCoords, _backupTileElementArrays[3]);
+        map_set_tile_element(southTileCoords, _backupTileElementArrays[4]);
 
         trackBlock++;
     }
@@ -2615,18 +2611,16 @@ void sub_6C94D8()
             z = _currentTrackBegin.z;
             direction = _currentTrackPieceDirection;
             type = _currentTrackPieceType;
-            gMapSelectArrowPosition.x = x;
-            gMapSelectArrowPosition.y = y;
-            gMapSelectArrowPosition.z = z;
             if (direction >= 4)
                 direction += 4;
             if (_rideConstructionState == RIDE_CONSTRUCTION_STATE_BACK)
                 direction = direction_reverse(direction);
+            gMapSelectArrowPosition = CoordsXYZ{ x, y, z };
             gMapSelectArrowDirection = direction;
             gMapSelectFlags &= ~MAP_SELECT_FLAG_ENABLE_ARROW;
             if (_currentTrackSelectionFlags & TRACK_SELECTION_FLAG_ARROW)
                 gMapSelectFlags |= MAP_SELECT_FLAG_ENABLE_ARROW;
-            map_invalidate_tile_full(x, y);
+            map_invalidate_tile_full({ x, y });
             break;
         case RIDE_CONSTRUCTION_STATE_SELECTED:
             _rideConstructionArrowPulseTime--;
@@ -2659,9 +2653,7 @@ void sub_6C94D8()
             x = _currentTrackBegin.x & 0xFFE0;
             y = _currentTrackBegin.y & 0xFFE0;
             z = _currentTrackBegin.z + 15;
-            gMapSelectArrowPosition.x = x;
-            gMapSelectArrowPosition.y = y;
-            gMapSelectArrowPosition.z = z;
+            gMapSelectArrowPosition = CoordsXYZ{ x, y, z };
             gMapSelectArrowDirection = 4;
             if (((_currentTrackBegin.x & 0x1F) | (_currentTrackBegin.y & 0x1F)) != 0)
             {
@@ -2676,7 +2668,7 @@ void sub_6C94D8()
             gMapSelectFlags &= ~MAP_SELECT_FLAG_ENABLE_ARROW;
             if (_currentTrackSelectionFlags & TRACK_SELECTION_FLAG_ARROW)
                 gMapSelectFlags |= MAP_SELECT_FLAG_ENABLE_ARROW;
-            map_invalidate_tile_full(x, y);
+            map_invalidate_tile_full({ x, y });
             break;
     }
 }
@@ -3503,10 +3495,8 @@ void ride_construction_toolupdate_construct(ScreenCoordsXY screenCoords)
     gMapSelectFlags |= MAP_SELECT_FLAG_ENABLE_CONSTRUCT;
     gMapSelectFlags |= MAP_SELECT_FLAG_ENABLE_ARROW;
     gMapSelectFlags &= ~MAP_SELECT_FLAG_GREEN;
+    gMapSelectArrowPosition = CoordsXYZ{ *mapCoords, z };
     gMapSelectArrowDirection = _currentTrackPieceDirection;
-    gMapSelectArrowPosition.x = mapCoords->x;
-    gMapSelectArrowPosition.y = mapCoords->y;
-    gMapSelectArrowPosition.z = z;
     gMapSelectionTiles.clear();
     gMapSelectionTiles.push_back(*mapCoords);
 
@@ -3538,7 +3528,7 @@ void ride_construction_toolupdate_construct(ScreenCoordsXY screenCoords)
             int32_t highestZ = 0;
             for (const auto& selectedTile : gMapSelectionTiles)
             {
-                if (selectedTile.x < (256 * 32) && selectedTile.y < (256 * 32))
+                if (map_is_location_valid(selectedTile))
                 {
                     z = map_get_highest_z(selectedTile);
                     if (z > highestZ)
@@ -3588,7 +3578,7 @@ void ride_construction_toolupdate_construct(ScreenCoordsXY screenCoords)
                 break;
 
             _currentTrackBegin.z -= 8;
-            if (_currentTrackBegin.z & LOCATION_NULL)
+            if (_currentTrackBegin.z < 0)
                 break;
 
             if (bx >= 0)
@@ -3615,7 +3605,7 @@ void ride_construction_toolupdate_construct(ScreenCoordsXY screenCoords)
             break;
 
         _currentTrackBegin.z -= 8;
-        if (_currentTrackBegin.z & LOCATION_NULL)
+        if (_currentTrackBegin.z < 0)
             break;
 
         if (bx >= 0)
@@ -3625,14 +3615,12 @@ void ride_construction_toolupdate_construct(ScreenCoordsXY screenCoords)
     if (_autoRotatingShop && _rideConstructionState == RIDE_CONSTRUCTION_STATE_PLACE
         && ride_type_has_flag(ride->type, RIDE_TYPE_FLAG_IS_SHOP))
     {
-        TileElement* pathsByDir[4];
-        constexpr sLocationXY8 DirOffsets[4] = { { -1, 0 }, { 0, 1 }, { 1, 0 }, { 0, -1 } };
+        TileElement* pathsByDir[NumOrthogonalDirections];
 
         bool keepOrientation = false;
-        for (int8_t i = 0; i < 4; i++)
+        for (int8_t i = 0; i < NumOrthogonalDirections; i++)
         {
-            pathsByDir[i] = map_get_footpath_element(
-                (mapCoords->x >> 5) + DirOffsets[i].x, (mapCoords->y >> 5) + DirOffsets[i].y, z >> 3);
+            pathsByDir[i] = map_get_footpath_element({ *mapCoords + CoordsDirectionDelta[i], z });
 
             if (pathsByDir[i] && (pathsByDir[i])->AsPath()->IsSloped() && (pathsByDir[i])->AsPath()->GetSlopeDirection() != i)
             {
@@ -3642,8 +3630,7 @@ void ride_construction_toolupdate_construct(ScreenCoordsXY screenCoords)
             // Sloped path on the level below
             if (!pathsByDir[i])
             {
-                pathsByDir[i] = map_get_footpath_element(
-                    (mapCoords->x >> 5) + DirOffsets[i].x, (mapCoords->y >> 5) + DirOffsets[i].y, (z >> 3) - 2);
+                pathsByDir[i] = map_get_footpath_element({ *mapCoords + CoordsDirectionDelta[i], z - PATH_HEIGHT_STEP });
 
                 if (pathsByDir[i]
                     && (!(pathsByDir[i])->AsPath()->IsSloped()
@@ -3711,14 +3698,10 @@ void ride_construction_toolupdate_entrance_exit(ScreenCoordsXY screenCoords)
     gMapSelectFlags |= MAP_SELECT_FLAG_ENABLE;
     gMapSelectFlags |= MAP_SELECT_FLAG_ENABLE_ARROW;
     gMapSelectType = MAP_SELECT_TYPE_FULL;
-    gMapSelectPositionA.x = entranceOrExitCoords.x;
-    gMapSelectPositionA.y = entranceOrExitCoords.y;
-    gMapSelectPositionB.x = entranceOrExitCoords.x;
-    gMapSelectPositionB.y = entranceOrExitCoords.y;
+    gMapSelectPositionA = entranceOrExitCoords;
+    gMapSelectPositionB = entranceOrExitCoords;
+    gMapSelectArrowPosition = entranceOrExitCoords;
     gMapSelectArrowDirection = direction_reverse(entranceOrExitCoords.direction);
-    gMapSelectArrowPosition.x = entranceOrExitCoords.x;
-    gMapSelectArrowPosition.y = entranceOrExitCoords.y;
-    gMapSelectArrowPosition.z = entranceOrExitCoords.z * 8;
     map_invalidate_selection_rect();
 
     entranceOrExitCoords.direction = direction_reverse(gRideEntranceExitPlaceDirection);
@@ -3764,7 +3747,7 @@ void ride_construction_tooldown_construct(ScreenCoordsXY screenCoords)
     {
         for (const auto& selectedTile : gMapSelectionTiles)
         {
-            if (selectedTile.x >= (256 * 32) || selectedTile.y >= (256 * 32))
+            if (!map_is_location_valid(selectedTile))
                 continue;
 
             z = map_get_highest_z(selectedTile);
@@ -3848,7 +3831,7 @@ void ride_construction_tooldown_construct(ScreenCoordsXY screenCoords)
                     || errorText == STR_CAN_ONLY_BUILD_THIS_ABOVE_GROUND || errorText == STR_TOO_HIGH_FOR_SUPPORTS
                     || zAttempts == 0 || z < 0)
                 {
-                    audio_play_sound(SoundId::Error, 0, state->x);
+                    audio_play_sound(SoundId::Error, 0, state->position.x);
                     w = window_find_by_class(WC_RIDE_CONSTRUCTION);
                     if (w != nullptr)
                     {
@@ -3921,7 +3904,7 @@ void ride_construction_tooldown_construct(ScreenCoordsXY screenCoords)
                 _currentTrackAlternative = saveCurrentTrackAlternative;
                 _currentTrackLiftHill = saveCurrentTrackLiftHill;
 
-                audio_play_sound(SoundId::Error, 0, state->x);
+                audio_play_sound(SoundId::Error, 0, state->position.x);
                 break;
             }
             else if (zAttempts >= 0)

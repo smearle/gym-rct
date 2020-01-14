@@ -23,6 +23,7 @@
 #include "localisation/Localisation.h"
 #include "management/NewsItem.h"
 #include "network/network.h"
+#include "peep/Staff.h"
 #include "platform/Platform2.h"
 #include "scenario/Scenario.h"
 #include "title/TitleScreen.h"
@@ -218,7 +219,6 @@ void GameState::Update()
         pause_toggle();
     }
 
-    gGameCommandNestLevel = 0;
     gDoSingleUpdate = false;
     gInUpdateCode = false;
 }

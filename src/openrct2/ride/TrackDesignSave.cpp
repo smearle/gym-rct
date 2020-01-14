@@ -181,7 +181,7 @@ static void track_design_save_push_tile_element(CoordsXY loc, TileElement* tileE
     if (_trackSavedTileElements.size() < TRACK_MAX_SAVED_TILE_ELEMENTS)
     {
         _trackSavedTileElements.push_back(tileElement);
-        map_invalidate_tile_full(loc.x, loc.y);
+        map_invalidate_tile_full(loc);
     }
 }
 
@@ -218,24 +218,25 @@ static void track_design_save_add_scenery(CoordsXY loc, SmallSceneryElement* sce
 
     track_design_save_push_tile_element(loc, reinterpret_cast<TileElement*>(sceneryElement));
     track_design_save_push_tile_element_desc(
-        entry, { loc.x, loc.y, sceneryElement->base_height * 8 }, flags, primaryColour, secondaryColour);
+        entry, { loc.x, loc.y, sceneryElement->GetBaseZ() }, flags, primaryColour, secondaryColour);
 }
 
 static void track_design_save_add_large_scenery(CoordsXY loc, LargeSceneryElement* tileElement)
 {
     rct_large_scenery_tile *sceneryTiles, *tile;
-    int32_t x0, y0, z0, z;
     int32_t direction, sequence;
 
     int32_t entryType = tileElement->GetEntryIndex();
     auto entry = object_entry_get_entry(OBJECT_TYPE_LARGE_SCENERY, entryType);
     sceneryTiles = get_large_scenery_entry(entryType)->large_scenery.tiles;
 
-    z = tileElement->base_height;
+    int32_t z = tileElement->base_height;
     direction = tileElement->GetDirection();
     sequence = tileElement->GetSequenceIndex();
 
-    if (!map_large_scenery_get_origin(loc.x, loc.y, z, direction, sequence, &x0, &y0, &z0, nullptr))
+    auto sceneryOrigin = map_large_scenery_get_origin(
+        { loc.x, loc.y, z << 3, static_cast<Direction>(direction) }, sequence, nullptr);
+    if (!sceneryOrigin)
     {
         return;
     }
@@ -244,12 +245,12 @@ static void track_design_save_add_large_scenery(CoordsXY loc, LargeSceneryElemen
     sequence = 0;
     for (tile = sceneryTiles; tile->x_offset != -1; tile++, sequence++)
     {
-        int16_t offsetX = tile->x_offset;
-        int16_t offsetY = tile->y_offset;
-        rotate_map_coordinates(&offsetX, &offsetY, direction);
+        CoordsXY offsetPos{ tile->x_offset, tile->y_offset };
+        auto rotatedOffsetPos = offsetPos.Rotate(direction);
 
-        CoordsXYZ tileLoc = { x0 + offsetX, y0 + offsetY, (z0 + tile->z_offset) };
-        auto largeElement = map_get_large_scenery_segment(tileLoc.x, tileLoc.y, tileLoc.z / 8, direction, sequence);
+        CoordsXYZ tileLoc = { sceneryOrigin->x + rotatedOffsetPos.x, sceneryOrigin->y + rotatedOffsetPos.y,
+                              sceneryOrigin->z + tile->z_offset };
+        auto largeElement = map_get_large_scenery_segment({ tileLoc, static_cast<Direction>(direction) }, sequence);
         if (largeElement != nullptr)
         {
             if (sequence == 0)
@@ -279,7 +280,7 @@ static void track_design_save_add_wall(CoordsXY loc, WallElement* wallElement)
 
     track_design_save_push_tile_element(loc, reinterpret_cast<TileElement*>(wallElement));
     track_design_save_push_tile_element_desc(
-        entry, { loc.x, loc.y, wallElement->base_height * 8 }, flags, primaryColour, secondaryColour);
+        entry, { loc.x, loc.y, wallElement->GetBaseZ() }, flags, primaryColour, secondaryColour);
 }
 
 static void track_design_save_add_footpath(CoordsXY loc, PathElement* pathElement)
@@ -296,7 +297,7 @@ static void track_design_save_add_footpath(CoordsXY loc, PathElement* pathElemen
         flags |= 1 << 7;
 
     track_design_save_push_tile_element(loc, reinterpret_cast<TileElement*>(pathElement));
-    track_design_save_push_tile_element_desc(entry, { loc.x, loc.y, pathElement->base_height * 8 }, flags, 0, 0);
+    track_design_save_push_tile_element_desc(entry, { loc.x, loc.y, pathElement->GetBaseZ() }, flags, 0, 0);
 }
 
 /**
@@ -335,7 +336,7 @@ static bool track_design_save_add_tile_element(int32_t interactionType, CoordsXY
  */
 static void track_design_save_pop_tile_element(CoordsXY loc, TileElement* tileElement)
 {
-    map_invalidate_tile_full(loc.x, loc.y);
+    map_invalidate_tile_full(loc);
 
     // Find index of map element to remove
     size_t removeIndex = SIZE_MAX;
@@ -393,24 +394,25 @@ static void track_design_save_remove_scenery(CoordsXY loc, SmallSceneryElement* 
     flags |= sceneryElement->GetSceneryQuadrant() << 2;
 
     track_design_save_pop_tile_element(loc, reinterpret_cast<TileElement*>(sceneryElement));
-    track_design_save_pop_tile_element_desc(entry, { loc.x, loc.y, sceneryElement->base_height * 8 }, flags);
+    track_design_save_pop_tile_element_desc(entry, { loc.x, loc.y, sceneryElement->GetBaseZ() }, flags);
 }
 
 static void track_design_save_remove_large_scenery(CoordsXY loc, LargeSceneryElement* tileElement)
 {
     rct_large_scenery_tile *sceneryTiles, *tile;
-    int32_t x0, y0, z0, z;
     int32_t direction, sequence;
 
     int32_t entryType = tileElement->GetEntryIndex();
     auto entry = object_entry_get_entry(OBJECT_TYPE_LARGE_SCENERY, entryType);
     sceneryTiles = get_large_scenery_entry(entryType)->large_scenery.tiles;
 
-    z = tileElement->base_height;
+    int32_t z = tileElement->base_height;
     direction = tileElement->GetDirection();
     sequence = tileElement->GetSequenceIndex();
 
-    if (!map_large_scenery_get_origin(loc.x, loc.y, z, direction, sequence, &x0, &y0, &z0, nullptr))
+    auto sceneryOrigin = map_large_scenery_get_origin(
+        { loc.x, loc.y, z << 3, static_cast<Direction>(direction) }, sequence, nullptr);
+    if (!sceneryOrigin)
     {
         return;
     }
@@ -419,12 +421,12 @@ static void track_design_save_remove_large_scenery(CoordsXY loc, LargeSceneryEle
     sequence = 0;
     for (tile = sceneryTiles; tile->x_offset != -1; tile++, sequence++)
     {
-        int16_t offsetX = tile->x_offset;
-        int16_t offsetY = tile->y_offset;
-        rotate_map_coordinates(&offsetX, &offsetY, direction);
+        CoordsXY offsetPos{ tile->x_offset, tile->y_offset };
+        auto rotatedOffsetPos = offsetPos.Rotate(direction);
 
-        CoordsXYZ tileLoc = { x0 + offsetX, y0 + offsetY, z0 + tile->z_offset };
-        auto largeElement = map_get_large_scenery_segment(tileLoc.x, tileLoc.y, tileLoc.z / 8, direction, sequence);
+        CoordsXYZ tileLoc = { sceneryOrigin->x + rotatedOffsetPos.x, sceneryOrigin->y + rotatedOffsetPos.y,
+                              sceneryOrigin->z + tile->z_offset };
+        auto largeElement = map_get_large_scenery_segment({ tileLoc, static_cast<Direction>(direction) }, sequence);
         if (largeElement != nullptr)
         {
             if (sequence == 0)
@@ -447,7 +449,7 @@ static void track_design_save_remove_wall(CoordsXY loc, WallElement* wallElement
     flags |= wallElement->GetTertiaryColour() << 2;
 
     track_design_save_pop_tile_element(loc, reinterpret_cast<TileElement*>(wallElement));
-    track_design_save_pop_tile_element_desc(entry, { loc.x, loc.y, wallElement->base_height * 8 }, flags);
+    track_design_save_pop_tile_element_desc(entry, { loc.x, loc.y, wallElement->GetBaseZ() }, flags);
 }
 
 static void track_design_save_remove_footpath(CoordsXY loc, PathElement* pathElement)
@@ -464,7 +466,7 @@ static void track_design_save_remove_footpath(CoordsXY loc, PathElement* pathEle
         flags |= (1 << 7);
 
     track_design_save_pop_tile_element(loc, reinterpret_cast<TileElement*>(pathElement));
-    track_design_save_pop_tile_element_desc(entry, { loc.x, loc.y, pathElement->base_height * 8 }, flags);
+    track_design_save_pop_tile_element_desc(entry, { loc.x, loc.y, pathElement->GetBaseZ() }, flags);
 }
 
 /**
@@ -523,7 +525,7 @@ static void track_design_save_select_nearby_scenery_for_tile(ride_id_t rideIndex
     {
         for (int32_t x = cx - TRACK_NEARBY_SCENERY_DISTANCE; x <= cx + TRACK_NEARBY_SCENERY_DISTANCE; x++)
         {
-            tileElement = map_get_first_element_at(x, y);
+            tileElement = map_get_first_element_at(TileCoordsXY{ x, y }.ToCoordsXY());
             if (tileElement == nullptr)
                 continue;
             do

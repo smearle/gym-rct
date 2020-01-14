@@ -66,9 +66,9 @@ static rct_widget window_view_clipping_widgets[] = {
 
 #pragma region Members
 
-static LocationXY16 _selectionStart;
-static LocationXY8 _previousClipSelectionA;
-static LocationXY8 _previousClipSelectionB;
+static CoordsXY _selectionStart;
+static TileCoordsXY _previousClipSelectionA;
+static TileCoordsXY _previousClipSelectionB;
 static bool _toolActive;
 static bool _dragging;
 
@@ -318,14 +318,13 @@ static void window_view_clipping_tool_update(rct_window* w, rct_widgetindex widg
     }
 
     int32_t direction;
-    CoordsXY mapCoords = screen_pos_to_map_pos(screenCoords, &direction);
-    if (mapCoords.x != LOCATION_NULL)
+    auto mapCoords = screen_pos_to_map_pos(screenCoords, &direction);
+    if (mapCoords)
     {
         gMapSelectFlags |= MAP_SELECT_FLAG_ENABLE;
-        map_invalidate_tile_full(gMapSelectPositionA.x, gMapSelectPositionA.y);
-        gMapSelectPositionA.x = gMapSelectPositionB.x = mapCoords.x;
-        gMapSelectPositionA.y = gMapSelectPositionB.y = mapCoords.y;
-        map_invalidate_tile_full(mapCoords.x, mapCoords.y);
+        map_invalidate_tile_full(gMapSelectPositionA);
+        gMapSelectPositionA = gMapSelectPositionB = *mapCoords;
+        map_invalidate_tile_full(*mapCoords);
         gMapSelectType = MAP_SELECT_TYPE_FULL;
     }
 }
@@ -333,11 +332,11 @@ static void window_view_clipping_tool_update(rct_window* w, rct_widgetindex widg
 static void window_view_clipping_tool_down(rct_window* w, rct_widgetindex widgetIndex, ScreenCoordsXY screenCoords)
 {
     int32_t direction;
-    CoordsXY mapCoords = screen_pos_to_map_pos(screenCoords, &direction);
-    if (mapCoords.x != LOCATION_NULL)
+    auto mapCoords = screen_pos_to_map_pos(screenCoords, &direction);
+    if (mapCoords)
     {
         _dragging = true;
-        _selectionStart = { static_cast<int16_t>(mapCoords.x), static_cast<int16_t>(mapCoords.y) };
+        _selectionStart = *mapCoords;
     }
 }
 
@@ -349,15 +348,15 @@ static void window_view_clipping_tool_drag(rct_window* w, rct_widgetindex widget
     }
 
     int32_t direction;
-    CoordsXY mapCoords = screen_pos_to_map_pos(screenCoords, &direction);
-    if (mapCoords.x != LOCATION_NULL)
+    auto mapCoords = screen_pos_to_map_pos(screenCoords, &direction);
+    if (mapCoords)
     {
         map_invalidate_selection_rect();
         gMapSelectFlags |= MAP_SELECT_FLAG_ENABLE;
-        gMapSelectPositionA.x = std::min(_selectionStart.x, static_cast<int16_t>(mapCoords.x));
-        gMapSelectPositionB.x = std::max(_selectionStart.x, static_cast<int16_t>(mapCoords.x));
-        gMapSelectPositionA.y = std::min(_selectionStart.y, static_cast<int16_t>(mapCoords.y));
-        gMapSelectPositionB.y = std::max(_selectionStart.y, static_cast<int16_t>(mapCoords.y));
+        gMapSelectPositionA.x = std::min(_selectionStart.x, mapCoords->x);
+        gMapSelectPositionB.x = std::max(_selectionStart.x, mapCoords->x);
+        gMapSelectPositionA.y = std::min(_selectionStart.y, mapCoords->y);
+        gMapSelectPositionB.y = std::max(_selectionStart.y, mapCoords->y);
         gMapSelectType = MAP_SELECT_TYPE_FULL;
         map_invalidate_selection_rect();
     }
@@ -365,8 +364,8 @@ static void window_view_clipping_tool_drag(rct_window* w, rct_widgetindex widget
 
 static void window_view_clipping_tool_up(struct rct_window*, rct_widgetindex, ScreenCoordsXY)
 {
-    gClipSelectionA = { uint8_t(gMapSelectPositionA.x / 32), uint8_t(gMapSelectPositionA.y / 32) };
-    gClipSelectionB = { uint8_t(gMapSelectPositionB.x / 32), uint8_t(gMapSelectPositionB.y / 32) };
+    gClipSelectionA = TileCoordsXY{ gMapSelectPositionA };
+    gClipSelectionB = TileCoordsXY{ gMapSelectPositionB };
     _toolActive = false;
     tool_cancel();
     gfx_invalidate_screen();

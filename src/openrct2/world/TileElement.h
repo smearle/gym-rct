@@ -78,6 +78,10 @@ struct TileElementBase
     void Remove();
     uint8_t GetOccupiedQuadrants() const;
     void SetOccupiedQuadrants(uint8_t quadrants);
+    int32_t GetBaseZ() const;
+    void SetBaseZ(int32_t newZ);
+    int32_t GetClearanceZ() const;
+    void SetClearanceZ(int32_t newZ);
 };
 
 /**
@@ -250,6 +254,8 @@ public:
 
     bool ShouldDrawPathOverSupports();
     void SetShouldDrawPathOverSupports(bool on);
+
+    bool IsLevelCrossing(CoordsXY coords) const;
 };
 assert_struct_size(PathElement, 16);
 
@@ -367,7 +373,7 @@ public:
     rct_scenery_entry* GetEntry() const;
     uint8_t GetAge() const;
     void SetAge(uint8_t newAge);
-    void IncreaseAge(int32_t x, int32_t y);
+    void IncreaseAge(const CoordsXY& sceneryPos);
     uint8_t GetSceneryQuadrant() const;
     void SetSceneryQuadrant(uint8_t newQuadrant);
     colour_t GetPrimaryColour() const;

@@ -19,6 +19,8 @@
 #include <openrct2/Input.h>
 #include <openrct2/OpenRCT2.h>
 #include <openrct2/actions/LandSetRightsAction.hpp>
+#include <openrct2/actions/PlaceParkEntranceAction.hpp>
+#include <openrct2/actions/PlacePeepSpawnAction.hpp>
 #include <openrct2/actions/SurfaceSetStyleAction.hpp>
 #include <openrct2/audio/audio.h>
 #include <openrct2/localisation/Localisation.h>
@@ -564,8 +566,8 @@ static void window_map_scrollgetsize(rct_window* w, int32_t scrollIndex, int32_t
 static void window_map_scrollmousedown(rct_window* w, int32_t scrollIndex, ScreenCoordsXY screenCoords)
 {
     CoordsXY c = map_window_screen_to_map(screenCoords);
-    int32_t mapX = std::clamp(c.x, 0, MAXIMUM_MAP_SIZE_TECHNICAL * 32 - 1);
-    int32_t mapY = std::clamp(c.y, 0, MAXIMUM_MAP_SIZE_TECHNICAL * 32 - 1);
+    int32_t mapX = std::clamp(c.x, 0, MAXIMUM_MAP_SIZE_BIG - 1);
+    int32_t mapY = std::clamp(c.y, 0, MAXIMUM_MAP_SIZE_BIG - 1);
     int32_t mapZ = tile_element_height({ mapX, mapY });
 
     rct_window* mainWindow = window_get_main();
@@ -1019,15 +1021,15 @@ static MapCoordsXY window_map_transform_to_map_coords(CoordsXY c)
     {
         case 3:
             std::swap(x, y);
-            x = MAXIMUM_MAP_SIZE_TECHNICAL * 32 - 1 - x;
+            x = MAXIMUM_MAP_SIZE_BIG - 1 - x;
             break;
         case 2:
-            x = MAXIMUM_MAP_SIZE_TECHNICAL * 32 - 1 - x;
-            y = MAXIMUM_MAP_SIZE_TECHNICAL * 32 - 1 - y;
+            x = MAXIMUM_MAP_SIZE_BIG - 1 - x;
+            y = MAXIMUM_MAP_SIZE_BIG - 1 - y;
             break;
         case 1:
             std::swap(x, y);
-            y = MAXIMUM_MAP_SIZE_TECHNICAL * 32 - 1 - y;
+            y = MAXIMUM_MAP_SIZE_BIG - 1 - y;
             break;
         case 0:
             break;
@@ -1177,8 +1179,7 @@ static void window_map_set_land_rights_tool_update(ScreenCoordsXY screenCoords)
     int32_t radius = (landRightsToolSize * 16) - 16;
     mapCoords->x = (mapCoords->x - radius) & 0xFFE0;
     mapCoords->y = (mapCoords->y - radius) & 0xFFE0;
-    gMapSelectPositionA.x = mapCoords->x;
-    gMapSelectPositionA.y = mapCoords->y;
+    gMapSelectPositionA = *mapCoords;
     gMapSelectPositionB.x = mapCoords->x + size;
     gMapSelectPositionB.y = mapCoords->y + size;
     map_invalidate_selection_rect();
@@ -1193,20 +1194,20 @@ static CoordsXYZD place_park_entrance_get_map_position(ScreenCoordsXY screenCoor
     CoordsXYZD parkEntranceMapPosition{ 0, 0, 0, INVALID_DIRECTION };
     const CoordsXY mapCoords = sub_68A15E(screenCoords);
     parkEntranceMapPosition = { mapCoords.x, mapCoords.y, 0, INVALID_DIRECTION };
-    if (parkEntranceMapPosition.x == LOCATION_NULL)
+    if (parkEntranceMapPosition.isNull())
         return parkEntranceMapPosition;
 
     auto surfaceElement = map_get_surface_element_at(mapCoords);
     if (surfaceElement == nullptr)
     {
-        parkEntranceMapPosition.x = LOCATION_NULL;
+        parkEntranceMapPosition.setNull();
         return parkEntranceMapPosition;
     }
 
     parkEntranceMapPosition.z = surfaceElement->GetWaterHeight() * 8;
     if (parkEntranceMapPosition.z == 0)
     {
-        parkEntranceMapPosition.z = surfaceElement->base_height * 8;
+        parkEntranceMapPosition.z = surfaceElement->GetBaseZ();
         if ((surfaceElement->GetSlope() & TILE_ELEMENT_SLOPE_ALL_CORNERS_UP) != 0)
         {
             parkEntranceMapPosition.z += 16;
@@ -1234,7 +1235,7 @@ static void window_map_place_park_entrance_tool_update(ScreenCoordsXY screenCoor
     gMapSelectFlags &= ~MAP_SELECT_FLAG_ENABLE_ARROW;
     gMapSelectFlags &= ~MAP_SELECT_FLAG_ENABLE_CONSTRUCT;
     CoordsXYZD parkEntrancePosition = place_park_entrance_get_map_position(screenCoords);
-    if (parkEntrancePosition.x == LOCATION_NULL)
+    if (parkEntrancePosition.isNull())
     {
         park_entrance_remove_ghost();
         return;
@@ -1248,23 +1249,18 @@ static void window_map_place_park_entrance_tool_update(ScreenCoordsXY screenCoor
     gMapSelectionTiles.push_back({ parkEntrancePosition.x - CoordsDirectionDelta[sideDirection].x,
                                    parkEntrancePosition.y - CoordsDirectionDelta[sideDirection].y });
 
-    gMapSelectArrowPosition.x = parkEntrancePosition.x;
-    gMapSelectArrowPosition.y = parkEntrancePosition.y;
-    gMapSelectArrowPosition.z = parkEntrancePosition.z;
+    gMapSelectArrowPosition = parkEntrancePosition;
     gMapSelectArrowDirection = parkEntrancePosition.direction;
 
     gMapSelectFlags |= MAP_SELECT_FLAG_ENABLE_CONSTRUCT | MAP_SELECT_FLAG_ENABLE_ARROW;
     map_invalidate_map_selection_tiles();
-    if (gParkEntranceGhostExists && parkEntrancePosition.x == gParkEntranceGhostPosition.x
-        && parkEntrancePosition.y == gParkEntranceGhostPosition.y
-        && parkEntrancePosition.direction == gParkEntranceGhostDirection)
+    if (gParkEntranceGhostExists && parkEntrancePosition == gParkEntranceGhostPosition)
     {
         return;
     }
 
     park_entrance_remove_ghost();
-    park_entrance_place_ghost(
-        parkEntrancePosition.x, parkEntrancePosition.y, parkEntrancePosition.z / 16, parkEntrancePosition.direction);
+    park_entrance_place_ghost(parkEntrancePosition);
 }
 
 /**
@@ -1283,7 +1279,7 @@ static void window_map_set_peep_spawn_tool_update(ScreenCoordsXY screenCoords)
     if ((mapX & 0xFFFF) == 0x8000)
         return;
 
-    mapZ = tileElement->base_height * 8;
+    mapZ = tileElement->GetBaseZ();
     if (tileElement->GetType() == TILE_ELEMENT_TYPE_SURFACE)
     {
         if ((tileElement->AsSurface()->GetSlope() & TILE_ELEMENT_SLOPE_ALL_CORNERS_UP) != 0)
@@ -1299,10 +1295,8 @@ static void window_map_set_peep_spawn_tool_update(ScreenCoordsXY screenCoords)
     gMapSelectPositionA.y = mapY;
     gMapSelectPositionB.x = mapX;
     gMapSelectPositionB.y = mapY;
+    gMapSelectArrowPosition = CoordsXYZ{ mapX, mapY, mapZ };
     gMapSelectArrowDirection = direction_reverse(direction);
-    gMapSelectArrowPosition.x = mapX;
-    gMapSelectArrowPosition.y = mapY;
-    gMapSelectArrowPosition.z = mapZ;
     map_invalidate_selection_rect();
 }
 
@@ -1315,13 +1309,13 @@ static void window_map_place_park_entrance_tool_down(ScreenCoordsXY screenCoords
     park_entrance_remove_ghost();
 
     CoordsXYZD parkEntrancePosition = place_park_entrance_get_map_position(screenCoords);
-    if (parkEntrancePosition.x != LOCATION_NULL)
+    if (!parkEntrancePosition.isNull())
     {
-        money32 price = place_park_entrance(
-            parkEntrancePosition.x, parkEntrancePosition.y, parkEntrancePosition.z / 16, parkEntrancePosition.direction);
-        if (price != MONEY32_UNDEFINED)
+        auto gameAction = PlaceParkEntranceAction(parkEntrancePosition);
+        auto result = GameActions::Execute(&gameAction);
+        if (result->Error == GA_ERROR::OK)
         {
-            audio_play_sound_at_location(SoundId::PlaceItem, { gCommandPosition.x, gCommandPosition.y, gCommandPosition.z });
+            audio_play_sound_at_location(SoundId::PlaceItem, result->Position);
         }
     }
 }
@@ -1340,12 +1334,13 @@ static void window_map_set_peep_spawn_tool_down(ScreenCoordsXY screenCoords)
     if (mapX == LOCATION_NULL)
         return;
 
-    mapZ = tileElement->base_height * 8;
+    mapZ = tileElement->GetBaseZ();
 
-    bool result = place_peep_spawn({ mapX, mapY, mapZ, (uint8_t)direction });
-    if (result)
+    auto gameAction = PlacePeepSpawnAction({ mapX, mapY, mapZ, static_cast<Direction>(direction) });
+    auto result = GameActions::Execute(&gameAction);
+    if (result->Error == GA_ERROR::OK)
     {
-        audio_play_sound_at_location(SoundId::PlaceItem, { gCommandPosition.x, gCommandPosition.y, gCommandPosition.z });
+        audio_play_sound_at_location(SoundId::PlaceItem, result->Position);
     }
 }
 
@@ -1636,32 +1631,33 @@ static void map_window_set_pixels(rct_window* w)
     int32_t x = 0, y = 0, dx = 0, dy = 0;
 
     int32_t pos = (_currentLine * (MAP_WINDOW_MAP_SIZE - 1)) + MAXIMUM_MAP_SIZE_TECHNICAL - 1;
-    LocationXY16 destinationPosition = MakeXY16(pos % MAP_WINDOW_MAP_SIZE, pos / MAP_WINDOW_MAP_SIZE);
+    LocationXY16 destinationPosition = { static_cast<int16_t>(pos % MAP_WINDOW_MAP_SIZE),
+                                         static_cast<int16_t>(pos / MAP_WINDOW_MAP_SIZE) };
     auto destination = _mapImageData.data() + (destinationPosition.y * MAP_WINDOW_MAP_SIZE) + destinationPosition.x;
     switch (get_current_rotation())
     {
         case 0:
-            x = _currentLine * 32;
+            x = _currentLine * COORDS_XY_STEP;
             y = 0;
             dx = 0;
-            dy = 32;
+            dy = COORDS_XY_STEP;
             break;
         case 1:
-            x = (MAXIMUM_MAP_SIZE_TECHNICAL - 1) * 32;
-            y = _currentLine * 32;
-            dx = -32;
+            x = MAXIMUM_TILE_START_XY;
+            y = _currentLine * COORDS_XY_STEP;
+            dx = -COORDS_XY_STEP;
             dy = 0;
             break;
         case 2:
-            x = ((MAXIMUM_MAP_SIZE_TECHNICAL - 1) - _currentLine) * 32;
-            y = (MAXIMUM_MAP_SIZE_TECHNICAL - 1) * 32;
+            x = MAXIMUM_MAP_SIZE_BIG - ((_currentLine + 1) * COORDS_XY_STEP);
+            y = MAXIMUM_TILE_START_XY;
             dx = 0;
-            dy = -32;
+            dy = -COORDS_XY_STEP;
             break;
         case 3:
             x = 0;
-            y = ((MAXIMUM_MAP_SIZE_TECHNICAL - 1) - _currentLine) * 32;
-            dx = 32;
+            y = MAXIMUM_MAP_SIZE_BIG - ((_currentLine + 1) * COORDS_XY_STEP);
+            dx = COORDS_XY_STEP;
             dy = 0;
             break;
     }
@@ -1706,11 +1702,11 @@ static CoordsXY map_window_screen_to_map(ScreenCoordsXY screenCoords)
         case 0:
             return { x, y };
         case 1:
-            return { MAXIMUM_MAP_SIZE_TECHNICAL * 32 - 1 - y, x };
+            return { MAXIMUM_MAP_SIZE_BIG - 1 - y, x };
         case 2:
-            return { MAXIMUM_MAP_SIZE_TECHNICAL * 32 - 1 - x, MAXIMUM_MAP_SIZE_TECHNICAL * 32 - 1 - y };
+            return { MAXIMUM_MAP_SIZE_BIG - 1 - x, MAXIMUM_MAP_SIZE_BIG - 1 - y };
         case 3:
-            return { y, MAXIMUM_MAP_SIZE_TECHNICAL * 32 - 1 - x };
+            return { y, MAXIMUM_MAP_SIZE_BIG - 1 - x };
     }
 
     return { 0, 0 }; // unreachable

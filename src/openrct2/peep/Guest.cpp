@@ -30,11 +30,13 @@
 #include "../world/Climate.h"
 #include "../world/Footpath.h"
 #include "../world/LargeScenery.h"
+#include "../world/Map.h"
 #include "../world/Park.h"
 #include "../world/Scenery.h"
 #include "../world/Sprite.h"
 #include "../world/Surface.h"
 #include "Peep.h"
+#include "Staff.h"
 
 #include <algorithm>
 #include <iterator>
@@ -401,7 +403,7 @@ bool Guest::GuestHasValidXY() const
 {
     if (x != LOCATION_NULL)
     {
-        if (x < (256 * 32) && y < (256 * 32))
+        if (map_is_location_valid({ x, y }))
         {
             return true;
         }
@@ -955,7 +957,7 @@ void Guest::Tick128UpdateGuest(int32_t index)
                 {
                     /* Peep happiness is affected once the peep has been waiting
                      * too long in a queue. */
-                    TileElement* tileElement = map_get_first_element_at(next_x / 32, next_y / 32);
+                    TileElement* tileElement = map_get_first_element_at({ next_x, next_y });
                     bool found = false;
                     do
                     {
@@ -1226,11 +1228,8 @@ void Guest::UpdateSitting()
         if (!(pathingResult & PATHING_DESTINATION_REACHED))
             return;
 
-        LocationXYZ16 loc = {
-            (int16_t)((x & 0xFFE0) + BenchUseOffsets[var_37 & 0x7].x),
-            (int16_t)((y & 0xFFE0) + BenchUseOffsets[var_37 & 0x7].y),
-            z,
-        };
+        auto loc = CoordsXYZ{ x, y, z }.ToTileStart()
+            + CoordsXYZ{ BenchUseOffsets[var_37 & 0x7].x, BenchUseOffsets[var_37 & 0x7].y, 0 };
 
         MoveTo(loc.x, loc.y, loc.z);
 
@@ -1706,25 +1705,25 @@ loc_69B221:
         no_of_souvenirs++;
 
     money16* expend_type = &paid_on_souvenirs;
-    gCommandExpenditureType = RCT_EXPENDITURE_TYPE_SHOP_STOCK;
+    ExpenditureType expenditure = ExpenditureType::ShopStock;
 
     if (shop_item_is_food(shopItem))
     {
         expend_type = &paid_on_food;
-        gCommandExpenditureType = RCT_EXPENDITURE_TYPE_FOODDRINK_STOCK;
+        expenditure = ExpenditureType::FoodDrinkStock;
     }
 
     if (shop_item_is_drink(shopItem))
     {
         expend_type = &paid_on_drink;
-        gCommandExpenditureType = RCT_EXPENDITURE_TYPE_FOODDRINK_STOCK;
+        expenditure = ExpenditureType::FoodDrinkStock;
     }
 
     if (!(gParkFlags & PARK_FLAGS_NO_MONEY))
-        finance_payment(ShopItems[shopItem].Cost, gCommandExpenditureType);
+        finance_payment(ShopItems[shopItem].Cost, expenditure);
 
     // Sets the expenditure type to *_FOODDRINK_SALES or *_SHOP_SALES appropriately.
-    gCommandExpenditureType--;
+    expenditure = static_cast<ExpenditureType>(static_cast<int32_t>(expenditure) - 1);
     if (hasVoucher)
     {
         item_standard_flags &= ~PEEP_ITEM_VOUCHER;
@@ -1732,7 +1731,7 @@ loc_69B221:
     }
     else if (!(gParkFlags & PARK_FLAGS_NO_MONEY))
     {
-        SpendMoney(*expend_type, price);
+        SpendMoney(*expend_type, price, expenditure);
     }
     ride->total_profit += (price - ShopItems[shopItem].Cost);
     ride->window_invalidate_flags |= RIDE_INVALIDATE_RIDE_INCOME;
@@ -1925,13 +1924,13 @@ std::bitset<MAX_RIDES> Guest::FindRidesToGoOn()
         constexpr auto radius = 10 * 32;
         int32_t cx = floor2(x, 32);
         int32_t cy = floor2(y, 32);
-        for (int32_t tileX = cx - radius; tileX <= cx + radius; tileX += 32)
+        for (int32_t tileX = cx - radius; tileX <= cx + radius; tileX += COORDS_XY_STEP)
         {
-            for (int32_t tileY = cy - radius; tileY <= cy + radius; tileY += 32)
+            for (int32_t tileY = cy - radius; tileY <= cy + radius; tileY += COORDS_XY_STEP)
             {
                 if (map_is_location_valid({ tileX, tileY }))
                 {
-                    auto tileElement = map_get_first_element_at(tileX >> 5, tileY >> 5);
+                    auto tileElement = map_get_first_element_at({ tileX, tileY });
                     if (tileElement != nullptr)
                     {
                         do
@@ -2328,10 +2327,10 @@ bool Guest::ShouldGoToShop(Ride* ride, bool peepAtShop)
 }
 
 // Used when no logging to an expend type required
-void Guest::SpendMoney(money32 amount)
+void Guest::SpendMoney(money32 amount, ExpenditureType expenditure)
 {
     money16 unused;
-    SpendMoney(unused, amount);
+    SpendMoney(unused, amount, expenditure);
 }
 
 /**
@@ -2339,7 +2338,7 @@ void Guest::SpendMoney(money32 amount)
  *  rct2: 0x0069926C
  * Expend type was previously an offset saved in 0x00F1AEC0
  */
-void Guest::SpendMoney(money16& peep_expend_type, money32 amount)
+void Guest::SpendMoney(money16& peep_expend_type, money32 amount, ExpenditureType expenditure)
 {
     assert(!(gParkFlags & PARK_FLAGS_NO_MONEY));
 
@@ -2350,7 +2349,7 @@ void Guest::SpendMoney(money16& peep_expend_type, money32 amount)
 
     window_invalidate_by_number(WC_PEEP, sprite_index);
 
-    finance_payment(-amount, gCommandExpenditureType);
+    finance_payment(-amount, expenditure);
 
     if (gConfigGeneral.show_guest_purchases && !(gScreenFlags & SCREEN_FLAGS_TITLE_DEMO))
     {
@@ -2523,8 +2522,8 @@ static void peep_go_to_ride_entrance(Guest* peep, Ride* ride)
     x += 16;
     y += 16;
 
-    int16_t x_shift = word_981D6C[direction].x;
-    int16_t y_shift = word_981D6C[direction].y;
+    int16_t x_shift = DirectionOffsets[direction].x;
+    int16_t y_shift = DirectionOffsets[direction].y;
 
     uint8_t shift_multiplier = 21;
     rct_ride_entry* rideEntry = get_ride_entry(ride->subtype);
@@ -2942,14 +2941,14 @@ static PeepThoughtType peep_assess_surroundings(int16_t centre_x, int16_t centre
 
     int16_t initial_x = std::max(centre_x - 160, 0);
     int16_t initial_y = std::max(centre_y - 160, 0);
-    int16_t final_x = std::min(centre_x + 160, 8192);
-    int16_t final_y = std::min(centre_y + 160, 8192);
+    int16_t final_x = std::min(centre_x + 160, MAXIMUM_MAP_SIZE_BIG);
+    int16_t final_y = std::min(centre_y + 160, MAXIMUM_MAP_SIZE_BIG);
 
-    for (int16_t x = initial_x; x < final_x; x += 32)
+    for (int16_t x = initial_x; x < final_x; x += COORDS_XY_STEP)
     {
-        for (int16_t y = initial_y; y < final_y; y += 32)
+        for (int16_t y = initial_y; y < final_y; y += COORDS_XY_STEP)
         {
-            TileElement* tileElement = map_get_first_element_at(x / 32, y / 32);
+            TileElement* tileElement = map_get_first_element_at({ x, y });
             if (tileElement == nullptr)
                 continue;
             do
@@ -3182,13 +3181,13 @@ template<typename T> static void peep_head_for_nearest_ride(Guest* peep, bool co
         constexpr auto searchRadius = 10 * 32;
         int32_t cx = floor2(peep->x, 32);
         int32_t cy = floor2(peep->y, 32);
-        for (auto x = cx - searchRadius; x <= cx + searchRadius; x += 32)
+        for (auto x = cx - searchRadius; x <= cx + searchRadius; x += COORDS_XY_STEP)
         {
-            for (auto y = cy - searchRadius; y <= cy + searchRadius; y += 32)
+            for (auto y = cy - searchRadius; y <= cy + searchRadius; y += COORDS_XY_STEP)
             {
                 if (map_is_location_valid({ x, y }))
                 {
-                    auto tileElement = map_get_first_element_at(x >> 5, y >> 5);
+                    auto tileElement = map_get_first_element_at({ x, y });
                     if (tileElement != nullptr)
                     {
                         do
@@ -3535,7 +3534,7 @@ void Guest::UpdateRideAtEntrance()
 }
 
 /** rct2: 0x00981FD4, 0x00981FD6 */
-static constexpr const LocationXY16 _MazeEntranceStart[] = {
+static constexpr const CoordsXY _MazeEntranceStart[] = {
     { 8, 8 },
     { 8, 24 },
     { 24, 24 },
@@ -3632,9 +3631,7 @@ static void peep_update_ride_leave_entrance_waypoints(Peep* peep, Ride* ride)
     Guard::Assert(!entranceLocation.isNull());
     uint8_t direction_entrance = entranceLocation.direction;
 
-    LocationXY16 waypoint;
-    waypoint.x = ride->stations[peep->current_ride_station].Start.x * 32 + 16;
-    waypoint.y = ride->stations[peep->current_ride_station].Start.y * 32 + 16;
+    CoordsXY waypoint = ride->stations[peep->current_ride_station].Start.ToCoordsXY().ToTileCentre();
 
     TileElement* tile_element = ride_get_station_start_track_element(ride, peep->current_ride_station);
 
@@ -3693,7 +3690,7 @@ void Guest::UpdateRideAdvanceThroughEntrance()
             sub_state = PEEP_RIDE_FREE_VEHICLE_CHECK;
         }
 
-        actionZ = ride->stations[current_ride_station].Height * 8;
+        actionZ = ride->stations[current_ride_station].GetBaseZ();
 
         distanceThreshold += 4;
         if (xy_distance < distanceThreshold)
@@ -3822,8 +3819,8 @@ static void peep_go_to_ride_exit(Peep* peep, Ride* ride, int16_t x, int16_t y, i
     x += 16;
     y += 16;
 
-    int16_t x_shift = word_981D6C[exit_direction].x;
-    int16_t y_shift = word_981D6C[exit_direction].y;
+    int16_t x_shift = DirectionOffsets[exit_direction].x;
+    int16_t y_shift = DirectionOffsets[exit_direction].y;
 
     int16_t shift_multiplier = 20;
 
@@ -3871,8 +3868,7 @@ void Guest::UpdateRideFreeVehicleEnterRide(Ride* ride)
         {
             ride->total_profit += ridePrice;
             ride->window_invalidate_flags |= RIDE_INVALIDATE_RIDE_INCOME;
-            gCommandExpenditureType = RCT_EXPENDITURE_TYPE_PARK_RIDE_TICKETS;
-            SpendMoney(paid_on_rides, ridePrice);
+            SpendMoney(paid_on_rides, ridePrice, ExpenditureType::ParkRideTickets);
         }
     }
 
@@ -3923,8 +3919,8 @@ static void peep_update_ride_no_free_vehicle_rejoin_queue(Peep* peep, Ride* ride
 
     int32_t x = entranceLocation.x * 32;
     int32_t y = entranceLocation.y * 32;
-    x += 16 - word_981D6C[entranceLocation.direction].x * 20;
-    y += 16 - word_981D6C[entranceLocation.direction].y * 20;
+    x += 16 - DirectionOffsets[entranceLocation.direction].x * 20;
+    y += 16 - DirectionOffsets[entranceLocation.direction].y * 20;
 
     peep->destination_x = x;
     peep->destination_y = y;
@@ -4166,7 +4162,7 @@ void Guest::UpdateRideLeaveVehicle()
         assert(current_ride_station < MAX_STATIONS);
         TileCoordsXYZD exitLocation = ride_get_exit_location(ride, current_ride_station);
         CoordsXYZD platformLocation;
-        platformLocation.z = ride->stations[current_ride_station].Height;
+        platformLocation.z = ride->stations[current_ride_station].GetBaseZ();
 
         platformLocation.direction = direction_reverse(exitLocation.direction);
 
@@ -4178,14 +4174,14 @@ void Guest::UpdateRideLeaveVehicle()
                 if (trackType == TRACK_ELEM_FLAT || trackType > TRACK_ELEM_MIDDLE_STATION)
                     continue;
 
-                TileElement* inner_map = map_get_first_element_at(vehicle->track_x / 32, vehicle->track_y / 32);
+                TileElement* inner_map = map_get_first_element_at({ vehicle->track_x, vehicle->track_y });
                 if (inner_map == nullptr)
                     continue;
                 for (;; inner_map++)
                 {
                     if (inner_map->GetType() != TILE_ELEMENT_TYPE_TRACK)
                         continue;
-                    if (inner_map->base_height == vehicle->track_z / 8)
+                    if (inner_map->GetBaseZ() == vehicle->track_z)
                         break;
                 }
 
@@ -4218,20 +4214,19 @@ void Guest::UpdateRideLeaveVehicle()
                 }
             }
 
-            int16_t xShift = word_981D6C[specialDirection].x;
-            int16_t yShift = word_981D6C[specialDirection].y;
+            int16_t xShift = DirectionOffsets[specialDirection].x;
+            int16_t yShift = DirectionOffsets[specialDirection].y;
 
             platformLocation.x = vehicle->x + xShift * shiftMultiplier;
             platformLocation.y = vehicle->y + yShift * shiftMultiplier;
-            platformLocation.z *= 8;
 
             peep_go_to_ride_exit(
                 this, ride, platformLocation.x, platformLocation.y, platformLocation.z, platformLocation.direction);
             return;
         }
 
-        platformLocation.x = vehicle->x + word_981D6C[platformLocation.direction].x * 12;
-        platformLocation.y = vehicle->y + word_981D6C[platformLocation.direction].y * 12;
+        platformLocation.x = vehicle->x + DirectionOffsets[platformLocation.direction].x * 12;
+        platformLocation.y = vehicle->y + DirectionOffsets[platformLocation.direction].y * 12;
 
         // This can evaluate to false with buggy custom rides.
         if (current_seat < vehicle_entry->peep_loading_positions.size())
@@ -4261,7 +4256,7 @@ void Guest::UpdateRideLeaveVehicle()
                 vehicle_entry->peep_loading_positions.size());
         }
 
-        platformLocation.z = ride->stations[current_ride_station].Height * 8;
+        platformLocation.z = ride->stations[current_ride_station].GetBaseZ();
 
         peep_go_to_ride_exit(
             this, ride, platformLocation.x, platformLocation.y, platformLocation.z, platformLocation.direction);
@@ -4334,8 +4329,8 @@ static void peep_update_ride_prepare_for_exit(Peep* peep)
     x += 16;
     y += 16;
 
-    int16_t x_shift = word_981D6C[exit_direction].x;
-    int16_t y_shift = word_981D6C[exit_direction].y;
+    int16_t x_shift = DirectionOffsets[exit_direction].x;
+    int16_t y_shift = DirectionOffsets[exit_direction].y;
 
     int16_t shift_multiplier = 20;
 
@@ -4392,7 +4387,7 @@ void Guest::UpdateRideInExit()
     {
         if (xy_distance >= 16)
         {
-            int16_t actionZ = ride->stations[current_ride_station].Height * 8;
+            int16_t actionZ = ride->stations[current_ride_station].GetBaseZ();
 
             actionZ += RideData5[ride->type].z;
             MoveTo((*loc).x, (*loc).y, actionZ);
@@ -4433,7 +4428,7 @@ void Guest::UpdateRideApproachVehicleWaypoints()
         // Motion simulators have steps this moves the peeps up the steps
         if (ride->type == RIDE_TYPE_MOTION_SIMULATOR)
         {
-            actionZ = ride->stations[current_ride_station].Height * 8 + 2;
+            actionZ = ride->stations[current_ride_station].GetBaseZ() + 2;
 
             if (waypoint == 2)
             {
@@ -4509,7 +4504,7 @@ void Guest::UpdateRideApproachExitWaypoints()
         int16_t actionZ;
         if (ride->type == RIDE_TYPE_MOTION_SIMULATOR)
         {
-            actionZ = ride->stations[current_ride_station].Height * 8 + 2;
+            actionZ = ride->stations[current_ride_station].GetBaseZ() + 2;
 
             if ((var_37 & 3) == 1)
             {
@@ -4565,8 +4560,8 @@ void Guest::UpdateRideApproachExitWaypoints()
     CoordsXY targetLoc = { exit.x * 32 + 16, exit.y * 32 + 16 };
     uint8_t exit_direction = direction_reverse(exit.direction);
 
-    int16_t x_shift = word_981D6C[exit_direction].x;
-    int16_t y_shift = word_981D6C[exit_direction].y;
+    int16_t x_shift = DirectionOffsets[exit_direction].x;
+    int16_t y_shift = DirectionOffsets[exit_direction].y;
 
     int16_t shift_multiplier = 20;
 
@@ -4814,8 +4809,8 @@ void Guest::UpdateRideLeaveSpiralSlide()
     auto exit = ride_get_exit_location(ride, current_ride_station);
     CoordsXY targetLoc{ exit.x * 32 + 16, exit.y * 32 + 16 };
 
-    int16_t xShift = word_981D6C[direction_reverse(exit.direction)].x;
-    int16_t yShift = word_981D6C[direction_reverse(exit.direction)].y;
+    int16_t xShift = DirectionOffsets[direction_reverse(exit.direction)].x;
+    int16_t yShift = DirectionOffsets[direction_reverse(exit.direction)].y;
 
     int16_t shiftMultiplier = 20;
 
@@ -4880,10 +4875,10 @@ void Guest::UpdateRideMazePathfinding()
 
     CoordsXY targetLoc = { destination_x & 0xFFE0, destination_y & 0xFFE0 };
 
-    int16_t stationHeight = ride->stations[0].Height;
+    int16_t stationBaseZ = ride->stations[0].GetBaseZ();
 
     // Find the station track element
-    auto trackElement = map_get_track_element_at(targetLoc.x, targetLoc.y, stationHeight);
+    auto trackElement = map_get_track_element_at({ targetLoc, stationBaseZ });
     if (trackElement == nullptr)
     {
         return;
@@ -4941,12 +4936,12 @@ void Guest::UpdateRideMazePathfinding()
     };
     maze_type mazeType = maze_type::invalid;
 
-    auto tileElement = map_get_first_element_at(targetLoc.x / 32, targetLoc.y / 32);
+    auto tileElement = map_get_first_element_at(targetLoc);
     if (tileElement == nullptr)
         return;
     do
     {
-        if (stationHeight != tileElement->base_height)
+        if (stationBaseZ != tileElement->GetBaseZ())
             continue;
 
         if (tileElement->GetType() == TILE_ELEMENT_TYPE_TRACK)
@@ -4981,13 +4976,11 @@ void Guest::UpdateRideMazePathfinding()
             targetLoc.y = destination_y;
             if (chosenEdge & 1)
             {
-                targetLoc.x &= 0xFFE0;
-                targetLoc.x += 16;
+                targetLoc.x = targetLoc.ToTileCentre().x;
             }
             else
             {
-                targetLoc.y &= 0xFFE0;
-                targetLoc.y += 16;
+                targetLoc.y = targetLoc.ToTileCentre().y;
             }
             destination_x = targetLoc.x;
             destination_y = targetLoc.y;
@@ -5015,7 +5008,7 @@ void Guest::UpdateRideLeaveExit()
     {
         if (ride != nullptr)
         {
-            MoveTo((*loc).x, (*loc).y, ride->stations[current_ride_station].Height * 8);
+            MoveTo((*loc).x, (*loc).y, ride->stations[current_ride_station].GetBaseZ());
         }
         return;
     }
@@ -5039,7 +5032,7 @@ void Guest::UpdateRideLeaveExit()
     CoordsXY targetLoc = { x, y };
 
     // Find the station track element
-    TileElement* tileElement = map_get_first_element_at(targetLoc.x / 32, targetLoc.y / 32);
+    TileElement* tileElement = map_get_first_element_at(targetLoc);
     if (tileElement == nullptr)
         return;
     do
@@ -5049,7 +5042,7 @@ void Guest::UpdateRideLeaveExit()
 
         int16_t height = map_height_from_slope(
             targetLoc, tileElement->AsPath()->GetSlopeDirection(), tileElement->AsPath()->IsSloped());
-        height += tileElement->base_height * 8;
+        height += tileElement->GetBaseZ();
 
         int16_t z_diff = z - height;
         if (z_diff > 0 || z_diff < -16)
@@ -5413,7 +5406,7 @@ void Guest::UpdateWalking()
 
     if (GetNextIsSurface())
     {
-        auto surfaceElement = map_get_surface_element_at({ next_x, next_y });
+        auto surfaceElement = map_get_surface_element_at(CoordsXY{ next_x, next_y });
 
         if (surfaceElement != nullptr)
         {
@@ -5463,7 +5456,7 @@ void Guest::UpdateWalking()
     if (GetNextIsSurface() || GetNextIsSloped())
         return;
 
-    TileElement* tileElement = map_get_first_element_at(next_x / 32, next_y / 32);
+    TileElement* tileElement = map_get_first_element_at({ next_x, next_y });
     if (tileElement == nullptr)
         return;
 
@@ -5881,7 +5874,7 @@ void Guest::UpdateUsingBin()
                 return;
             }
 
-            TileElement* tileElement = map_get_first_element_at(next_x / 32, next_y / 32);
+            TileElement* tileElement = map_get_first_element_at({ next_x, next_y });
             if (tileElement == nullptr)
                 return;
 
@@ -6004,7 +5997,7 @@ void Guest::UpdateUsingBin()
             additionStatus |= space_left_in_bin << selected_bin;
             tileElement->AsPath()->SetAdditionStatus(additionStatus);
 
-            map_invalidate_tile_zoom0(next_x, next_y, tileElement->base_height << 3, tileElement->clearance_height << 3);
+            map_invalidate_tile_zoom0({ next_x, next_y, tileElement->GetBaseZ(), tileElement->GetClearanceZ() });
             StateReset();
             break;
         }
@@ -6051,7 +6044,7 @@ bool Guest::UpdateWalkingFindBench()
     if (!ShouldFindBench())
         return false;
 
-    TileElement* tileElement = map_get_first_element_at(next_x / 32, next_y / 32);
+    TileElement* tileElement = map_get_first_element_at({ next_x, next_y });
     if (tileElement == nullptr)
         return false;
 
@@ -6148,7 +6141,7 @@ bool Guest::UpdateWalkingFindBin()
     if (peep->GetNextIsSurface())
         return false;
 
-    TileElement* tileElement = map_get_first_element_at(peep->next_x / 32, peep->next_y / 32);
+    TileElement* tileElement = map_get_first_element_at({ peep->next_x, peep->next_y });
     if (tileElement == nullptr)
         return false;
 
@@ -6251,7 +6244,7 @@ static void peep_update_walking_break_scenery(Peep* peep)
     if (peep->GetNextIsSurface())
         return;
 
-    TileElement* tileElement = map_get_first_element_at(peep->next_x / 32, peep->next_y / 32);
+    TileElement* tileElement = map_get_first_element_at({ peep->next_x, peep->next_y });
     if (tileElement == nullptr)
         return;
 
@@ -6321,7 +6314,7 @@ static void peep_update_walking_break_scenery(Peep* peep)
 
     tileElement->AsPath()->SetIsBroken(true);
 
-    map_invalidate_tile_zoom1(peep->next_x, peep->next_y, (tileElement->base_height << 3) + 32, tileElement->base_height << 3);
+    map_invalidate_tile_zoom1({ peep->next_x, peep->next_y, tileElement->GetBaseZ(), tileElement->GetBaseZ() + 32 });
 
     peep->angriness = 16;
 }
@@ -6436,7 +6429,7 @@ static bool peep_find_ride_to_look_at(Peep* peep, uint8_t edge, uint8_t* rideToV
 {
     TileElement* tileElement;
 
-    auto surfaceElement = map_get_surface_element_at({ peep->next_x, peep->next_y });
+    auto surfaceElement = map_get_surface_element_at(CoordsXY{ peep->next_x, peep->next_y });
 
     tileElement = reinterpret_cast<TileElement*>(surfaceElement);
     if (tileElement == nullptr)
@@ -6475,7 +6468,7 @@ static bool peep_find_ride_to_look_at(Peep* peep, uint8_t edge, uint8_t* rideToV
         return false;
     }
 
-    surfaceElement = map_get_surface_element_at({ x, y });
+    surfaceElement = map_get_surface_element_at(CoordsXY{ x, y });
 
     tileElement = reinterpret_cast<TileElement*>(surfaceElement);
     if (tileElement == nullptr)
@@ -6591,7 +6584,7 @@ static bool peep_find_ride_to_look_at(Peep* peep, uint8_t edge, uint8_t* rideToV
         return false;
     }
 
-    surfaceElement = map_get_surface_element_at({ x, y });
+    surfaceElement = map_get_surface_element_at(CoordsXY{ x, y });
 
     // TODO: extract loop A
     tileElement = reinterpret_cast<TileElement*>(surfaceElement);
@@ -6708,7 +6701,7 @@ static bool peep_find_ride_to_look_at(Peep* peep, uint8_t edge, uint8_t* rideToV
         return false;
     }
 
-    surfaceElement = map_get_surface_element_at({ x, y });
+    surfaceElement = map_get_surface_element_at(CoordsXY{ x, y });
 
     // TODO: extract loop A
     tileElement = reinterpret_cast<TileElement*>(surfaceElement);
@@ -6894,12 +6887,12 @@ void Guest::UpdateSpriteType()
     {
         if ((x & 0xFFE0) < 0x1FFF && (y & 0xFFE0) < 0x1FFF)
         {
-            TileElement* tileElement = map_get_first_element_at(x / 32, y / 32);
+            TileElement* tileElement = map_get_first_element_at({ x, y });
             while (true)
             {
                 if (tileElement == nullptr)
                     break;
-                if ((z / 8) < tileElement->base_height)
+                if (z < tileElement->GetBaseZ())
                     break;
 
                 if (tileElement->IsLastForTile())

@@ -56,7 +56,7 @@ public:
     {
         GameActionResult::Ptr res = std::make_unique<GameActionResult>();
         res->Cost = 0;
-        res->ExpenditureType = RCT_EXPENDITURE_TYPE_LANDSCAPING;
+        res->Expenditure = ExpenditureType::Landscaping;
         res->Position = _loc;
         res->Position.x += 16;
         res->Position.y += 16;
@@ -91,14 +91,14 @@ public:
     {
         GameActionResult::Ptr res = std::make_unique<GameActionResult>();
         res->Cost = 0;
-        res->ExpenditureType = RCT_EXPENDITURE_TYPE_LANDSCAPING;
+        res->Expenditure = ExpenditureType::Landscaping;
         res->Position = _loc;
         res->Position.x += 16;
         res->Position.y += 16;
 
         if (!(GetFlags() & GAME_COMMAND_FLAG_GHOST))
         {
-            footpath_interrupt_peeps(_loc.x, _loc.y, _loc.z);
+            footpath_interrupt_peeps(_loc);
         }
 
         gFootpathGroundFlags = 0;
@@ -130,7 +130,7 @@ private:
             zHigh += 2;
         }
 
-        auto entranceElement = map_get_park_entrance_element_at(_loc.x, _loc.y, zLow, false);
+        auto entranceElement = map_get_park_entrance_element_at(_loc, false);
         // Make sure the entrance part is the middle
         if (entranceElement != nullptr && (entranceElement->GetSequenceIndex()) == 0)
         {
@@ -148,7 +148,7 @@ private:
             : CREATE_CROSSING_MODE_PATH_OVER_TRACK;
         if (!entrancePath
             && !map_can_construct_with_clear_at(
-                _loc.x, _loc.y, zLow, zHigh, &map_place_non_scenery_clear_func, quarterTile, GetFlags(), &res->Cost,
+                { _loc, zLow * 8, zHigh * 8 }, &map_place_non_scenery_clear_func, quarterTile, GetFlags(), &res->Cost,
                 crossingMode))
         {
             return MakeResult(
@@ -184,7 +184,7 @@ private:
 
         if (!(GetFlags() & (GAME_COMMAND_FLAG_ALLOW_DURING_PAUSED | GAME_COMMAND_FLAG_GHOST)))
         {
-            footpath_remove_litter(_loc.x, _loc.y, _loc.z);
+            footpath_remove_litter(_loc);
         }
 
         res->Cost = MONEY(12, 00);
@@ -198,7 +198,7 @@ private:
             zHigh += 2;
         }
 
-        auto entranceElement = map_get_park_entrance_element_at(_loc.x, _loc.y, zLow, false);
+        auto entranceElement = map_get_park_entrance_element_at(_loc, false);
         // Make sure the entrance part is the middle
         if (entranceElement != nullptr && (entranceElement->GetSequenceIndex()) == 0)
         {
@@ -216,7 +216,7 @@ private:
             : CREATE_CROSSING_MODE_PATH_OVER_TRACK;
         if (!entrancePath
             && !map_can_construct_with_clear_at(
-                _loc.x, _loc.y, zLow, zHigh, &map_place_non_scenery_clear_func, quarterTile,
+                { _loc, zLow * 8, zHigh * 8 }, &map_place_non_scenery_clear_func, quarterTile,
                 GAME_COMMAND_FLAG_APPLY | GetFlags(), &res->Cost, crossingMode))
         {
             return MakeResult(
@@ -240,7 +240,7 @@ private:
             {
                 // Set the path type but make sure it's not a queue as that will not show up
                 entranceElement->SetPathType(_type & 0x7F);
-                map_invalidate_tile_full(_loc.x, _loc.y);
+                map_invalidate_tile_full(_loc);
             }
         }
         else
@@ -270,7 +270,7 @@ private:
             {
                 pathElement->SetGhost(true);
             }
-            map_invalidate_tile_full(_loc.x, _loc.y);
+            map_invalidate_tile_full(_loc);
         }
 
         // Prevent the place sound from being spammed

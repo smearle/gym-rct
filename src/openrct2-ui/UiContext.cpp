@@ -239,14 +239,16 @@ public:
         SDL_ShowCursor(value ? SDL_ENABLE : SDL_DISABLE);
     }
 
-    void GetCursorPosition(int32_t* x, int32_t* y) override
+    ScreenCoordsXY GetCursorPosition() override
     {
-        SDL_GetMouseState(x, y);
+        ScreenCoordsXY cursorPosition;
+        SDL_GetMouseState(&cursorPosition.x, &cursorPosition.y);
+        return cursorPosition;
     }
 
-    void SetCursorPosition(int32_t x, int32_t y) override
+    void SetCursorPosition(ScreenCoordsXY cursorPosition) override
     {
-        SDL_WarpMouseInWindow(nullptr, x, y);
+        SDL_WarpMouseInWindow(nullptr, cursorPosition.x, cursorPosition.y);
     }
 
     void SetCursorTrap(bool value) override
@@ -365,8 +367,8 @@ public:
                     }
                     break;
                 case SDL_MOUSEMOTION:
-                    _cursorState.x = (int32_t)(e.motion.x / gConfigGeneral.window_scale);
-                    _cursorState.y = (int32_t)(e.motion.y / gConfigGeneral.window_scale);
+                    _cursorState.position = { static_cast<int32_t>(e.motion.x / gConfigGeneral.window_scale),
+                                              static_cast<int32_t>(e.motion.y / gConfigGeneral.window_scale) };
                     break;
                 case SDL_MOUSEWHEEL:
                     if (_inGameConsole.IsOpen())
@@ -382,12 +384,12 @@ public:
                     {
                         break;
                     }
-                    int32_t x = (int32_t)(e.button.x / gConfigGeneral.window_scale);
-                    int32_t y = (int32_t)(e.button.y / gConfigGeneral.window_scale);
+                    ScreenCoordsXY mousePos = { static_cast<int32_t>(e.button.x / gConfigGeneral.window_scale),
+                                                static_cast<int32_t>(e.button.y / gConfigGeneral.window_scale) };
                     switch (e.button.button)
                     {
                         case SDL_BUTTON_LEFT:
-                            store_mouse_input(MOUSE_STATE_LEFT_PRESS, ScreenCoordsXY(x, y));
+                            store_mouse_input(MOUSE_STATE_LEFT_PRESS, mousePos);
                             _cursorState.left = CURSOR_PRESSED;
                             _cursorState.old = 1;
                             break;
@@ -395,7 +397,7 @@ public:
                             _cursorState.middle = CURSOR_PRESSED;
                             break;
                         case SDL_BUTTON_RIGHT:
-                            store_mouse_input(MOUSE_STATE_RIGHT_PRESS, ScreenCoordsXY(x, y));
+                            store_mouse_input(MOUSE_STATE_RIGHT_PRESS, mousePos);
                             _cursorState.right = CURSOR_PRESSED;
                             _cursorState.old = 2;
                             break;
@@ -409,12 +411,12 @@ public:
                     {
                         break;
                     }
-                    int32_t x = (int32_t)(e.button.x / gConfigGeneral.window_scale);
-                    int32_t y = (int32_t)(e.button.y / gConfigGeneral.window_scale);
+                    ScreenCoordsXY mousePos = { static_cast<int32_t>(e.button.x / gConfigGeneral.window_scale),
+                                                static_cast<int32_t>(e.button.y / gConfigGeneral.window_scale) };
                     switch (e.button.button)
                     {
                         case SDL_BUTTON_LEFT:
-                            store_mouse_input(MOUSE_STATE_LEFT_RELEASE, ScreenCoordsXY(x, y));
+                            store_mouse_input(MOUSE_STATE_LEFT_RELEASE, mousePos);
                             _cursorState.left = CURSOR_RELEASED;
                             _cursorState.old = 3;
                             break;
@@ -422,7 +424,7 @@ public:
                             _cursorState.middle = CURSOR_RELEASED;
                             break;
                         case SDL_BUTTON_RIGHT:
-                            store_mouse_input(MOUSE_STATE_RIGHT_RELEASE, ScreenCoordsXY(x, y));
+                            store_mouse_input(MOUSE_STATE_RIGHT_RELEASE, mousePos);
                             _cursorState.right = CURSOR_RELEASED;
                             _cursorState.old = 4;
                             break;
@@ -433,13 +435,13 @@ public:
                 // Apple sends touchscreen events for trackpads, so ignore these events on macOS
 #ifndef __MACOSX__
                 case SDL_FINGERMOTION:
-                    _cursorState.x = (int32_t)(e.tfinger.x * _width);
-                    _cursorState.y = (int32_t)(e.tfinger.y * _height);
+                    _cursorState.position = { static_cast<int32_t>(e.tfinger.x * _width),
+                                              static_cast<int32_t>(e.tfinger.y * _height) };
                     break;
                 case SDL_FINGERDOWN:
                 {
-                    int32_t x = (int32_t)(e.tfinger.x * _width);
-                    int32_t y = (int32_t)(e.tfinger.y * _height);
+                    ScreenCoordsXY fingerPos = { static_cast<int32_t>(e.tfinger.x * _width),
+                                                 static_cast<int32_t>(e.tfinger.y * _height) };
 
                     _cursorState.touchIsDouble
                         = (!_cursorState.touchIsDouble
@@ -447,13 +449,13 @@ public:
 
                     if (_cursorState.touchIsDouble)
                     {
-                        store_mouse_input(MOUSE_STATE_RIGHT_PRESS, ScreenCoordsXY(x, y));
+                        store_mouse_input(MOUSE_STATE_RIGHT_PRESS, fingerPos);
                         _cursorState.right = CURSOR_PRESSED;
                         _cursorState.old = 2;
                     }
                     else
                     {
-                        store_mouse_input(MOUSE_STATE_LEFT_PRESS, ScreenCoordsXY(x, y));
+                        store_mouse_input(MOUSE_STATE_LEFT_PRESS, fingerPos);
                         _cursorState.left = CURSOR_PRESSED;
                         _cursorState.old = 1;
                     }
@@ -463,18 +465,18 @@ public:
                 }
                 case SDL_FINGERUP:
                 {
-                    int32_t x = (int32_t)(e.tfinger.x * _width);
-                    int32_t y = (int32_t)(e.tfinger.y * _height);
+                    ScreenCoordsXY fingerPos = { static_cast<int32_t>(e.tfinger.x * _width),
+                                                 static_cast<int32_t>(e.tfinger.y * _height) };
 
                     if (_cursorState.touchIsDouble)
                     {
-                        store_mouse_input(MOUSE_STATE_RIGHT_RELEASE, ScreenCoordsXY(x, y));
+                        store_mouse_input(MOUSE_STATE_RIGHT_RELEASE, fingerPos);
                         _cursorState.right = CURSOR_RELEASED;
                         _cursorState.old = 4;
                     }
                     else
                     {
-                        store_mouse_input(MOUSE_STATE_LEFT_RELEASE, ScreenCoordsXY(x, y));
+                        store_mouse_input(MOUSE_STATE_LEFT_RELEASE, fingerPos);
                         _cursorState.left = CURSOR_RELEASED;
                         _cursorState.old = 3;
                     }
@@ -620,9 +622,8 @@ public:
         if (_titleSequencePlayer == nullptr)
         {
             auto context = GetContext();
-            auto scenarioRepository = context->GetScenarioRepository();
             auto gameState = context->GetGameState();
-            _titleSequencePlayer = CreateTitleSequencePlayer(*scenarioRepository, *gameState);
+            _titleSequencePlayer = CreateTitleSequencePlayer(*gameState);
         }
         return _titleSequencePlayer.get();
     }

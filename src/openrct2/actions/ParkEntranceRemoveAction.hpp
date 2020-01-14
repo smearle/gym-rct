@@ -48,7 +48,7 @@ public:
         }
 
         auto res = MakeResult();
-        res->ExpenditureType = RCT_EXPENDITURE_TYPE_LAND_PURCHASE;
+        res->Expenditure = ExpenditureType::LandPurchase;
         res->Position = _loc;
         res->ErrorTitle = STR_CANT_REMOVE_THIS;
 
@@ -64,7 +64,7 @@ public:
     GameActionResult::Ptr Execute() const override
     {
         auto res = MakeResult();
-        res->ExpenditureType = RCT_EXPENDITURE_TYPE_LAND_PURCHASE;
+        res->Expenditure = ExpenditureType::LandPurchase;
         res->Position = _loc;
         res->ErrorTitle = STR_CANT_REMOVE_THIS;
 
@@ -95,13 +95,13 @@ public:
 private:
     void ParkEntranceRemoveSegment(CoordsXYZ loc) const
     {
-        auto entranceElement = map_get_park_entrance_element_at(loc.x, loc.y, loc.z / 8, true);
+        auto entranceElement = map_get_park_entrance_element_at(loc, true);
         if (entranceElement == nullptr)
         {
             return;
         }
 
-        map_invalidate_tile(loc.x, loc.y, entranceElement->base_height * 8, entranceElement->clearance_height * 8);
+        map_invalidate_tile({ loc, entranceElement->GetBaseZ(), entranceElement->GetClearanceZ() });
         entranceElement->Remove();
         update_park_fences({ loc.x, loc.y });
     }

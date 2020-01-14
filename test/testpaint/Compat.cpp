@@ -32,8 +32,8 @@ int16_t gMapBaseZ;
 bool gTrackDesignSaveMode = false;
 uint8_t gTrackDesignSaveRideIndex = RIDE_ID_NULL;
 uint8_t gClipHeight = 255;
-LocationXY8 gClipSelectionA = { 0, 0 };
-LocationXY8 gClipSelectionB = { MAXIMUM_MAP_SIZE_TECHNICAL - 1, MAXIMUM_MAP_SIZE_TECHNICAL - 1 };
+TileCoordsXY gClipSelectionA = { 0, 0 };
+TileCoordsXY gClipSelectionB = { MAXIMUM_MAP_SIZE_TECHNICAL - 1, MAXIMUM_MAP_SIZE_TECHNICAL - 1 };
 uint32_t gScenarioTicks;
 uint8_t gCurrentRotation;
 
@@ -91,9 +91,9 @@ int object_entry_group_counts[] = {
 GeneralConfiguration gConfigGeneral;
 uint16_t gMapSelectFlags;
 uint16_t gMapSelectType;
-LocationXY16 gMapSelectPositionA;
-LocationXY16 gMapSelectPositionB;
-LocationXYZ16 gMapSelectArrowPosition;
+CoordsXY gMapSelectPositionA;
+CoordsXY gMapSelectPositionB;
+CoordsXYZ gMapSelectArrowPosition;
 uint8_t gMapSelectArrowDirection;
 
 void entrance_paint(paint_session* session, uint8_t direction, int height, const TileElement* tile_element)
@@ -183,14 +183,15 @@ bool TrackElement::BlockBrakeClosed() const
     return (flags & TILE_ELEMENT_FLAG_BLOCK_BRAKE_CLOSED) != 0;
 }
 
-TileElement* map_get_first_element_at(int x, int y)
+TileElement* map_get_first_element_at(const CoordsXY& elementPos)
 {
-    if (x < 0 || y < 0 || x > 255 || y > 255)
+    if (elementPos.x < 0 || elementPos.y < 0 || elementPos.x > 255 || elementPos.y > 255)
     {
         log_error("Trying to access element outside of range");
         return nullptr;
     }
-    return gTileElementTilePointers[x + y * 256];
+    auto tileElementPos = TileCoordsXY{ elementPos };
+    return gTileElementTilePointers[tileElementPos.x + tileElementPos.y * 256];
 }
 
 bool ride_type_has_flag(int rideType, uint32_t flag)
@@ -461,4 +462,40 @@ void TileElementBase::SetOccupiedQuadrants(uint8_t quadrants)
 {
     flags &= ~TILE_ELEMENT_OCCUPIED_QUADRANTS_MASK;
     flags |= (quadrants & TILE_ELEMENT_OCCUPIED_QUADRANTS_MASK);
+}
+
+int32_t TileElementBase::GetBaseZ() const
+{
+    return base_height * 8;
+}
+
+void TileElementBase::SetBaseZ(int32_t newZ)
+{
+    base_height = (newZ / 8);
+}
+
+int32_t TileElementBase::GetClearanceZ() const
+{
+    return clearance_height * 8;
+}
+
+void TileElementBase::SetClearanceZ(int32_t newZ)
+{
+    clearance_height = (newZ / 8);
+}
+
+int32_t RideStation::GetBaseZ() const
+{
+    return Height * 8;
+}
+
+void RideStation::SetBaseZ(int32_t newZ)
+{
+    Height = newZ / 8;
+}
+
+CoordsXYZ RideStation::GetStart() const
+{
+    TileCoordsXYZ stationTileCoords{ Start.x, Start.y, Height };
+    return stationTileCoords.ToCoordsXYZ();
 }

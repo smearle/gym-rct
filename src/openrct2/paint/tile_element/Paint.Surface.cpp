@@ -224,14 +224,14 @@ struct tile_descriptor
 
 struct tile_surface_boundary_data
 {
-    int32_t       bit_1;
-    int32_t       bit_8;
-    int32_t       bit_4;
-    int32_t       bit_2;
-    uint32_t       image[5];
-    LocationXY8  offset;
-    LocationXY16 box_offset;
-    LocationXY16 box_size;
+    int32_t  bit_1;
+    int32_t  bit_8;
+    int32_t  bit_4;
+    int32_t  bit_2;
+    uint32_t image[5];
+    CoordsXY offset;
+    CoordsXY box_offset;
+    CoordsXY box_size;
 };
 
 static constexpr const tile_surface_boundary_data _tileSurfaceBoundaries[4] =
@@ -534,8 +534,8 @@ static void viewport_surface_draw_tile_side_bottom(
 {
     int16_t cornerHeight1, neighbourCornerHeight1, cornerHeight2, neighbourCornerHeight2;
 
-    LocationXY8 offset = { 0, 0 };
-    LocationXY8 bounds = { 0, 0 };
+    CoordsXY offset = { 0, 0 };
+    CoordsXY bounds = { 0, 0 };
     LocationXY16 tunnelBounds = { 1, 1 };
     LocationXY16 tunnelTopBoundBoxOffset = { 0, 0 };
 
@@ -751,8 +751,8 @@ static void viewport_surface_draw_tile_side_top(
 
     int16_t al, ah, cl, ch, dl = 0, waterHeight;
 
-    sLocationXY8 offset = { 0, 0 };
-    sLocationXY8 bounds = { 0, 0 };
+    CoordsXY offset = { 0, 0 };
+    CoordsXY bounds = { 0, 0 };
 
     switch (edge)
     {
@@ -960,10 +960,10 @@ void surface_paint(paint_session* session, uint8_t direction, uint16_t height, c
 
         const uint32_t surfaceSlope = viewport_surface_paint_setup_get_relative_slope(
             reinterpret_cast<TileElement*>(surfaceElement), rotation);
-        const uint8_t baseHeight = surfaceElement->base_height / 2;
+        const uint8_t baseHeight = surfaceElement->GetBaseZ() / 16;
         const corner_height& ch = corner_heights[surfaceSlope];
 
-        descriptor.tile_coords = { position.x / 32, position.y / 32 };
+        descriptor.tile_coords = TileCoordsXY{ position };
         descriptor.tile_element = reinterpret_cast<TileElement*>(surfaceElement);
         descriptor.terrain = surfaceElement->GetSurfaceStyle();
         descriptor.slope = surfaceSlope;
@@ -1042,15 +1042,15 @@ void surface_paint(paint_session* session, uint8_t direction, uint16_t height, c
 
         if (!is_staff_list)
         {
-            Peep* staff = GET_PEEP(staffIndex);
-            if (!staff_is_patrol_area_set(staff->staff_id, x, y))
+            Staff* staff = (GET_PEEP(staffIndex))->AsStaff();
+            if (!staff->IsPatrolAreaSet({ x, y }))
             {
                 patrolColour = COLOUR_GREY;
             }
             staffType = staff->staff_type;
         }
 
-        if (staff_is_patrol_area_set(200 + staffType, x, y))
+        if (staff_is_patrol_area_set_for_type(static_cast<STAFF_TYPE>(staffType), session->MapPosition))
         {
             assert(surfaceShape < std::size(byte_97B444));
 

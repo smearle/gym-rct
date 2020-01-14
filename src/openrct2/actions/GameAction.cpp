@@ -266,14 +266,6 @@ namespace GameActions
 
         auto result = action->Query();
 
-        // Only top level actions affect the command position.
-        if (topLevel)
-        {
-            gCommandPosition.x = result->Position.x;
-            gCommandPosition.y = result->Position.y;
-            gCommandPosition.z = result->Position.z;
-        }
-
         if (result->Error == GA_ERROR::OK)
         {
             if (!finance_check_affordability(result->Cost, action->GetFlags()))
@@ -417,20 +409,16 @@ namespace GameActions
             if (!topLevel)
                 return result;
 
-            gCommandPosition.x = result->Position.x;
-            gCommandPosition.y = result->Position.y;
-            gCommandPosition.z = result->Position.z;
-
             // Update money balance
             if (result->Error == GA_ERROR::OK && finance_check_money_required(flags) && result->Cost != 0)
             {
-                finance_payment(result->Cost, result->ExpenditureType);
-                rct_money_effect::Create(result->Cost);
+                finance_payment(result->Cost, result->Expenditure);
+                rct_money_effect::Create(result->Cost, result->Position);
             }
 
             if (!(actionFlags & GA_FLAGS::CLIENT_ONLY) && result->Error == GA_ERROR::OK)
             {
-                if (network_get_mode() == NETWORK_MODE_SERVER)
+                if (network_get_mode() != NETWORK_MODE_NONE)
                 {
                     NetworkPlayerId_t playerId = action->GetPlayer();
 
@@ -443,12 +431,12 @@ namespace GameActions
                         network_add_player_money_spent(playerIndex, result->Cost);
                     }
 
-                    if (result->Position.x != LOCATION_NULL)
+                    if (!result->Position.isNull())
                     {
-                        network_set_player_last_action_coord(playerId, gCommandPosition);
+                        network_set_player_last_action_coord(playerId, result->Position);
                     }
                 }
-                else if (network_get_mode() == NETWORK_MODE_NONE)
+                else
                 {
                     bool commandExecutes = (flags & GAME_COMMAND_FLAG_GHOST) == 0 && (flags & GAME_COMMAND_FLAG_NO_SPEND) == 0;
 

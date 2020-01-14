@@ -159,7 +159,7 @@ rct_window* window_sign_open(rct_windownumber number)
     int32_t view_x = banner->position.x << 5;
     int32_t view_y = banner->position.y << 5;
 
-    TileElement* tile_element = map_get_first_element_at(view_x / 32, view_y / 32);
+    TileElement* tile_element = map_get_first_element_at({ view_x, view_y });
     if (tile_element == nullptr)
         return nullptr;
 
@@ -179,7 +179,7 @@ rct_window* window_sign_open(rct_windownumber number)
         tile_element++;
     }
 
-    int32_t view_z = tile_element->base_height << 3;
+    int32_t view_z = tile_element->GetBaseZ();
     w->frame_no = view_z;
 
     w->list_information_type = tile_element->AsLargeScenery()->GetPrimaryColour();
@@ -217,7 +217,7 @@ static void window_sign_mouseup(rct_window* w, rct_widgetindex widgetIndex)
             auto banner = GetBanner(w->number);
             int32_t x = banner->position.x << 5;
             int32_t y = banner->position.y << 5;
-            auto tile_element = map_get_first_element_at(x / 32, y / 32);
+            auto tile_element = map_get_first_element_at({ x, y });
             if (tile_element == nullptr)
                 return;
             while (1)
@@ -236,7 +236,7 @@ static void window_sign_mouseup(rct_window* w, rct_widgetindex widgetIndex)
             }
 
             auto sceneryRemoveAction = LargeSceneryRemoveAction(
-                { x, y, tile_element->base_height * 8, tile_element->GetDirection() },
+                { x, y, tile_element->GetBaseZ(), tile_element->GetDirection() },
                 tile_element->AsLargeScenery()->GetSequenceIndex());
             GameActions::Execute(&sceneryRemoveAction);
             break;
@@ -408,7 +408,7 @@ rct_window* window_sign_small_open(rct_windownumber number)
     int32_t view_x = banner->position.x << 5;
     int32_t view_y = banner->position.y << 5;
 
-    TileElement* tile_element = map_get_first_element_at(view_x / 32, view_y / 32);
+    TileElement* tile_element = map_get_first_element_at({ view_x, view_y });
     if (tile_element == nullptr)
         return nullptr;
 
@@ -426,7 +426,7 @@ rct_window* window_sign_small_open(rct_windownumber number)
         tile_element++;
     }
 
-    int32_t view_z = tile_element->base_height << 3;
+    int32_t view_z = tile_element->GetBaseZ();
     w->frame_no = view_z;
 
     w->list_information_type = tile_element->AsWall()->GetPrimaryColour();
@@ -465,7 +465,7 @@ static void window_sign_small_mouseup(rct_window* w, rct_widgetindex widgetIndex
             auto banner = GetBanner(w->number);
             int32_t x = banner->position.x << 5;
             int32_t y = banner->position.y << 5;
-            auto tile_element = map_get_first_element_at(x / 32, y / 32);
+            auto tile_element = map_get_first_element_at({ x, y });
             if (tile_element == nullptr)
                 return;
             while (true)
@@ -481,7 +481,7 @@ static void window_sign_small_mouseup(rct_window* w, rct_widgetindex widgetIndex
                 }
                 tile_element++;
             }
-            CoordsXYZD wallLocation = { x, y, tile_element->base_height * 8, tile_element->GetDirection() };
+            CoordsXYZD wallLocation = { x, y, tile_element->GetBaseZ(), tile_element->GetDirection() };
             auto wallRemoveAction = WallRemoveAction(wallLocation);
             GameActions::Execute(&wallRemoveAction);
             break;

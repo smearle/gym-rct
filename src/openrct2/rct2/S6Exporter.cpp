@@ -168,8 +168,8 @@ void S6Exporter::Export()
         auto temp = utf8_to_rct2(gS6Info.details);
         safe_strcpy(_s6.info.details, temp.data(), sizeof(_s6.info.details));
     }
-    uint32_t researchedTrackPiecesA[128];
-    uint32_t researchedTrackPiecesB[128];
+    uint32_t researchedTrackPiecesA[128] = {};
+    uint32_t researchedTrackPiecesB[128] = {};
 
     for (int32_t i = 0; i < OBJECT_ENTRY_COUNT; i++)
     {
@@ -522,11 +522,26 @@ void S6Exporter::ExportRide(rct2_ride* dst, const Ride* src)
         dst->name_arguments_number = src->default_name_number;
     }
 
-    dst->overall_view = src->overall_view;
+    if (src->overall_view.isNull())
+    {
+        dst->overall_view.setNull();
+    }
+    else
+    {
+        dst->overall_view = { static_cast<uint8_t>(src->overall_view.x), static_cast<uint8_t>(src->overall_view.y) };
+    }
 
     for (int32_t i = 0; i < RCT12_MAX_STATIONS_PER_RIDE; i++)
     {
-        dst->station_starts[i] = src->stations[i].Start;
+        if (src->stations[i].Start.isNull())
+        {
+            dst->station_starts[i].setNull();
+        }
+        else
+        {
+            dst->station_starts[i] = { static_cast<uint8_t>(src->stations[i].Start.x),
+                                       static_cast<uint8_t>(src->stations[i].Start.y) };
+        }
         dst->station_heights[i] = src->stations[i].Height;
         dst->station_length[i] = src->stations[i].Length;
         dst->station_depart[i] = src->stations[i].Depart;
@@ -534,13 +549,13 @@ void S6Exporter::ExportRide(rct2_ride* dst, const Ride* src)
 
         TileCoordsXYZD entrance = ride_get_entrance_location(src, i);
         if (entrance.isNull())
-            dst->entrances[i].xy = RCT_XY8_UNDEFINED;
+            dst->entrances[i].setNull();
         else
             dst->entrances[i] = { (uint8_t)entrance.x, (uint8_t)entrance.y };
 
         TileCoordsXYZD exit = ride_get_exit_location(src, i);
         if (exit.isNull())
-            dst->exits[i].xy = RCT_XY8_UNDEFINED;
+            dst->exits[i].setNull();
         else
             dst->exits[i] = { (uint8_t)exit.x, (uint8_t)exit.y };
 
@@ -554,7 +569,7 @@ void S6Exporter::ExportRide(rct2_ride* dst, const Ride* src)
         dst->queue_length[i] = src->stations[i].QueueLength;
     }
 
-    for (uint8_t i = 0; i < RCT2_MAX_VEHICLES_PER_RIDE; i++)
+    for (uint8_t i = 0; i <= RCT2_MAX_VEHICLES_PER_RIDE; i++)
     {
         dst->vehicles[i] = src->vehicles[i];
     }
@@ -575,7 +590,8 @@ void S6Exporter::ExportRide(rct2_ride* dst, const Ride* src)
     dst->operation_option = src->operation_option;
 
     dst->boat_hire_return_direction = src->boat_hire_return_direction;
-    dst->boat_hire_return_position = src->boat_hire_return_position;
+    dst->boat_hire_return_position = { static_cast<uint8_t>(src->boat_hire_return_position.x),
+                                       static_cast<uint8_t>(src->boat_hire_return_position.y) };
 
     dst->special_track_elements = src->special_track_elements;
     // pad_0D6[2];
@@ -593,7 +609,18 @@ void S6Exporter::ExportRide(rct2_ride* dst, const Ride* src)
     dst->previous_lateral_g = src->previous_lateral_g;
     // pad_106[0x2];
     dst->testing_flags = src->testing_flags;
-    dst->cur_test_track_location = src->cur_test_track_location;
+
+    if (src->CurTestTrackLocation.isNull())
+    {
+        dst->cur_test_track_location.setNull();
+    }
+    else
+    {
+        dst->cur_test_track_location = { static_cast<uint8_t>(src->CurTestTrackLocation.x),
+                                         static_cast<uint8_t>(src->CurTestTrackLocation.y) };
+        dst->cur_test_track_z = static_cast<uint8_t>(src->CurTestTrackLocation.z);
+    }
+
     dst->turn_count_default = src->turn_count_default;
     dst->turn_count_banked = src->turn_count_banked;
     dst->turn_count_sloped = src->turn_count_sloped;
@@ -608,7 +635,6 @@ void S6Exporter::ExportRide(rct2_ride* dst, const Ride* src)
     dst->sheltered_length = src->sheltered_length;
     dst->var_11C = src->var_11C;
     dst->num_sheltered_sections = src->num_sheltered_sections;
-    dst->cur_test_track_z = src->cur_test_track_z;
 
     dst->cur_num_customers = src->cur_num_customers;
     dst->num_customers_timeout = src->num_customers_timeout;
@@ -622,8 +648,9 @@ void S6Exporter::ExportRide(rct2_ride* dst, const Ride* src)
 
     for (uint8_t i = 0; i < 2; i++)
     {
-        dst->chairlift_bullwheel_location[i] = src->chairlift_bullwheel_location[i];
-        dst->chairlift_bullwheel_z[i] = src->chairlift_bullwheel_z[i];
+        dst->chairlift_bullwheel_location[i] = { static_cast<uint8_t>(src->ChairliftBullwheelLocation[i].x),
+                                                 static_cast<uint8_t>(src->ChairliftBullwheelLocation[i].y) };
+        dst->chairlift_bullwheel_z[i] = static_cast<uint8_t>(src->ChairliftBullwheelLocation[i].z);
     }
 
     dst->ratings = src->ratings;
@@ -714,9 +741,9 @@ void S6Exporter::ExportRide(rct2_ride* dst, const Ride* src)
     dst->total_air_time = src->total_air_time;
     dst->current_test_station = src->current_test_station;
     dst->num_circuits = src->num_circuits;
-    dst->cable_lift_x = src->cable_lift_x;
-    dst->cable_lift_y = src->cable_lift_y;
-    dst->cable_lift_z = src->cable_lift_z;
+    dst->cable_lift_x = static_cast<int16_t>(src->CableLiftLoc.x);
+    dst->cable_lift_y = static_cast<int16_t>(src->CableLiftLoc.y);
+    dst->cable_lift_z = static_cast<int16_t>(src->CableLiftLoc.z);
     // pad_1FD;
     dst->cable_lift = src->cable_lift;
 

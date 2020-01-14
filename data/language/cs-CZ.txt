@@ -116,8 +116,8 @@ STR_0530    :Kabiny visí na ocelovém laně, které nepřetržitě jede z jedno
 STR_0531    :Malá ocelová horská dráha, na které vlak projíždí smyčky a vývrtky
 STR_0532    :Bludiště z šest stop vysokých zdí nebo živého plotu. Návštěvníci bloudí dokud nenajdou východ
 STR_0533    :Dřevěná budova s krytým schodištěm a venkovní skluzavkou s koberečky
-STR_0534    :Návštěvníci sami řídí benzínové motokáry
-STR_0535    :Lodě ve tvaru klády se plaví po vodní kanále a sjíždí strmé úseky. Žádný návštěvník nezůstane suchý
+STR_0534    :Návštěvníci závodí na benzínových motokárách po asfaltovém okruhu
+STR_0535    :Lodě ve tvaru klády se plaví po vodním kanále a sjíždí strmé úseky. Nikdo nezůstane suchý!
 STR_0536    :Loď pluje po širokých meandrech, přes stříkající vodopády a po vzrušujících pěnících peřejích
 STR_0537    :Autodrom
 STR_0538    :Velká houpající se pirátská kocábka
@@ -2793,7 +2793,6 @@ STR_5410    :Upravit
 STR_5411    :Znovu načíst
 STR_5412    :Přeskočit na
 STR_5413    :Načíst
-STR_5414    :Načíst{MOVE_X}{87}Six Flags Magic Mountain.SC6
 STR_5415    :Načíst{MOVE_X}{87}{STRING}
 STR_5416    :Načíst{MOVE_X}{87}Nebyla vybrána uložená hra
 STR_5417    :Umístění
@@ -3672,6 +3671,22 @@ STR_6329    :{STRING}{STRINGID}
 STR_6330    :Stahování [{STRING}] od {STRING} ({COMMA16} / {COMMA16})
 STR_6331    :Přivolat kachny
 STR_6332    :Zmizet kachny
+STR_6333    :Zvýšit koeficient škálování
+STR_6334    :Snížit koeficient škálování
+STR_6335    :Průzkumník dlaždic: Vložit neplatný prvek
+STR_6336    :Průzkumník dlaždic: Kopírovat prvek
+STR_6337    :Průzkumník dlaždic: Vložit prvek
+STR_6338    :Průzkumník dlaždic: Smazat prvek
+STR_6339    :Průzkumník dlaždic: Posunout prvek nahoru
+STR_6340    :Průzkumník dlaždic: Posunout prvek dolů
+STR_6341    :Průzkumník dlaždic: Zvýšit X souřadnici
+STR_6342    :Průzkumník dlaždic: Snížit X souřadnici
+STR_6343    :Průzkumník dlaždic: Zvýšit Y souřadnici
+STR_6344    :Průzkumník dlaždic: Snížit Y souřadnici
+STR_6345    :Průzkumník dlaždic: Zvýšit výšku prvku
+STR_6346    :Průzkumník dlaždic: Snížit výšku prvku
+STR_6347    :Doplňky cest nelze kombinovat s přejezdem!
+STR_6348    :Napřed je nutné odstranit přejezd!
 
 ###############################################################################
 ## RCT2 Scenarios

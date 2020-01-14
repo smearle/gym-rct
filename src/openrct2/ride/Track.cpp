@@ -598,7 +598,7 @@ const rct_preview_track* get_track_def_from_ride_index(ride_id_t rideIndex, int3
 
 static TileElement* find_station_element(int32_t x, int32_t y, int32_t z, int32_t direction, ride_id_t rideIndex)
 {
-    TileElement* tileElement = map_get_first_element_at(x >> 5, y >> 5);
+    TileElement* tileElement = map_get_first_element_at({ x, y });
     if (tileElement == nullptr)
         return nullptr;
     do
@@ -623,9 +623,10 @@ static void ride_remove_station(Ride* ride, int32_t x, int32_t y, int32_t z)
 {
     for (int32_t i = 0; i < MAX_STATIONS; i++)
     {
-        if (ride->stations[i].Start.x == (x >> 5) && ride->stations[i].Start.y == (y >> 5) && ride->stations[i].Height == z)
+        auto stationStart = ride->stations[i].GetStart();
+        if (stationStart.x == x && stationStart.y == y && ride->stations[i].Height == z)
         {
-            ride->stations[i].Start.xy = RCT_XY8_UNDEFINED;
+            ride->stations[i].Start.setNull();
             ride->num_stations--;
             break;
         }
@@ -772,7 +773,7 @@ bool track_add_station_element(int32_t x, int32_t y, int32_t z, int32_t directio
                 }
                 stationElement->AsTrack()->SetTrackType(targetTrackType);
 
-                map_invalidate_element(x, y, stationElement);
+                map_invalidate_element({ x, y }, stationElement);
 
                 if (x != stationX0 || y != stationY0)
                 {
@@ -807,7 +808,8 @@ bool track_remove_station_element(int32_t x, int32_t y, int32_t z, int32_t direc
 
     if (ride_type_has_flag(ride->type, RIDE_TYPE_FLAG_3))
     {
-        TileElement* tileElement = map_get_track_element_at_with_direction_from_ride(x, y, z, direction, rideIndex);
+        TileElement* tileElement = map_get_track_element_at_with_direction_from_ride(
+            { x, y, z << 3, static_cast<Direction>(direction) }, rideIndex);
         if (tileElement != nullptr)
         {
             if (flags & GAME_COMMAND_FLAG_APPLY)
@@ -937,7 +939,7 @@ bool track_remove_station_element(int32_t x, int32_t y, int32_t z, int32_t direc
                 }
                 stationElement->AsTrack()->SetTrackType(targetTrackType);
 
-                map_invalidate_element(x, y, stationElement);
+                map_invalidate_element({ x, y }, stationElement);
             }
         }
 

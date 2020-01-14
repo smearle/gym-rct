@@ -30,7 +30,7 @@ enum DUCK_STATE
 };
 constexpr const int32_t DUCK_MAX_STATES = 5;
 
-static constexpr const LocationXY16 DuckMoveOffset[] =
+static constexpr const CoordsXY DuckMoveOffset[] =
 {
     { -1,  0 },
     {  0,  1 },
@@ -123,7 +123,7 @@ void rct_duck::UpdateFlyToWater()
     int32_t newY = y + DuckMoveOffset[direction].y;
     int32_t manhattanDistanceN = abs(target_x - newX) + abs(target_y - newY);
 
-    auto surfaceElement = map_get_surface_element_at({ target_x, target_y });
+    auto surfaceElement = map_get_surface_element_at(CoordsXY{ target_x, target_y });
     int32_t waterHeight = surfaceElement != nullptr ? surfaceElement->GetWaterHeight() : 0;
     if (waterHeight == 0)
     {

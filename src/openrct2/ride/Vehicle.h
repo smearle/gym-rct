@@ -95,7 +95,7 @@ struct rct_ride_entry_vehicle
                                             // it. Needs the VEHICLE_ENTRY_FLAG_OVERRIDE_NUM_VERTICAL_FRAMES flag to be set.
     uint8_t peep_loading_waypoint_segments; // 0x61 new
     uint8_t pad_62[6] = {};                 // 0x62 , 0x7B
-    std::vector<std::array<sLocationXY8, 3>> peep_loading_waypoints = {};
+    std::vector<std::array<CoordsXY, 3>> peep_loading_waypoints = {};
     std::vector<int8_t> peep_loading_positions = {}; // previously 0x61 , 0x7B
 };
 #ifdef __TESTPAINT__
@@ -147,6 +147,8 @@ enum VEHICLE_STATUS
     VEHICLE_STATUS_UNLOADING_PASSENGERS_1C,
     VEHICLE_STATUS_STOPPED_BY_BLOCK_BRAKES
 };
+
+struct rct_vehicle_sound_params;
 
 struct rct_vehicle : rct_sprite_common
 {
@@ -274,6 +276,12 @@ struct rct_vehicle : rct_sprite_common
     void Invalidate();
     void SetState(VEHICLE_STATUS vehicleStatus, uint8_t subState = 0);
     bool IsGhost() const;
+    void UpdateSoundParams() const;
+
+private:
+    bool SoundCanPlay() const;
+    uint16_t GetSoundPriority() const;
+    rct_vehicle_sound_params CreateSoundParam(uint16_t priority) const;
 };
 
 struct train_ref
@@ -495,7 +503,7 @@ extern uint8_t _vehicleVAngleEndF64E36;
 extern uint8_t _vehicleBankEndF64E37;
 extern uint8_t _vehicleF64E2C;
 extern rct_vehicle* _vehicleFrontVehicle;
-extern LocationXYZ16 unk_F64E20;
+extern CoordsXYZ unk_F64E20;
 
 /** Helper macro until rides are stored in this module. */
 #define GET_VEHICLE(sprite_index) &(get_sprite(sprite_index)->vehicle)

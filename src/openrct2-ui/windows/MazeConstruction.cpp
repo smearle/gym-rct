@@ -173,7 +173,7 @@ static void window_maze_construction_close(rct_window* w)
     auto ride = get_ride(_currentRideIndex);
     if (ride != nullptr)
     {
-        if (ride->overall_view.xy == RCT_XY8_UNDEFINED)
+        if (ride->overall_view.isNull())
         {
             int32_t savedPausedState = gGamePaused;
             gGamePaused = 0;
@@ -363,7 +363,7 @@ static void window_maze_construction_entrance_tooldown(ScreenCoordsXY screenCoor
     gMapSelectFlags &= ~MAP_SELECT_FLAG_ENABLE_ARROW;
 
     CoordsXYZD entranceOrExitCoords = ride_get_entrance_or_exit_position_from_screen_position(screenCoords);
-    if (entranceOrExitCoords.x == LOCATION_NULL)
+    if (entranceOrExitCoords.isNull())
         return;
 
     if (gRideEntranceExitPlaceDirection == 0xFF)

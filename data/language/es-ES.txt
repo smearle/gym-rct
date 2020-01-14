@@ -2779,7 +2779,6 @@ STR_5410    :Editar
 STR_5411    :Recargar
 STR_5412    :Cambiar a
 STR_5413    :Cargar
-STR_5414    :Cargar{MOVE_X}{87}Six Flags Magic Mountain.SC6
 STR_5415    :Cargar{MOVE_X}{87}{STRING}
 STR_5416    :Cargar{MOVE_X}{87}No seleccionado
 STR_5417    :Localización
@@ -3934,7 +3933,7 @@ STR_DTLS    :Una colección de icebergs dan un gélido entorno a este ambicioso 
 <Volcania>
 STR_SCNR    :Volcania
 STR_PARK    :Volcania
-STR_DTLS    :Un volcán en estado latente es el entorno para este proyecto de montaña rusa en construcción
+STR_DTLS    :Un volcán en estado latente es el entorno para este proyecto de montaña rusa en construcción.
 
 <Arid Heights>
 STR_SCNR    :Arid Heights
@@ -4074,7 +4073,7 @@ STR_DTLS    :En un planeta lejano, esta zona de terreno debe convertirse en un p
 <Micro Park>
 STR_SCNR    :Micro Park
 STR_PARK    :Micro Park
-STR_DTLS    :Intenta crear el parque rentable más pequeño del mundo
+STR_DTLS    :Intenta crear el parque rentable más pequeño del mundo.
 
 ## Real Parks from RCT1
 # None of them had details

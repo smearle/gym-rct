@@ -71,15 +71,15 @@ private:
             z = waterHeight;
         }
         res->Position.z = z;
-        res->ExpenditureType = RCT_EXPENDITURE_TYPE_LANDSCAPING;
+        res->Expenditure = ExpenditureType::Landscaping;
 
         uint8_t maxHeight = GetHighestHeight(validRange);
         bool hasChanged = false;
-        for (int32_t y = validRange.GetTop(); y <= validRange.GetBottom(); y += 32)
+        for (int32_t y = validRange.GetTop(); y <= validRange.GetBottom(); y += COORDS_XY_STEP)
         {
-            for (int32_t x = validRange.GetLeft(); x <= validRange.GetRight(); x += 32)
+            for (int32_t x = validRange.GetLeft(); x <= validRange.GetRight(); x += COORDS_XY_STEP)
             {
-                auto surfaceElement = map_get_surface_element_at(x / 32, y / 32);
+                auto surfaceElement = map_get_surface_element_at(CoordsXY{ x, y });
                 if (surfaceElement == nullptr)
                     continue;
                 uint8_t height = surfaceElement->GetWaterHeight();
@@ -130,11 +130,11 @@ private:
     {
         // The highest height to raise the water to is the lowest water level in the selection
         uint8_t maxHeight{ 255 };
-        for (int32_t y = validRange.GetTop(); y <= validRange.GetBottom(); y += 32)
+        for (int32_t y = validRange.GetTop(); y <= validRange.GetBottom(); y += COORDS_XY_STEP)
         {
-            for (int32_t x = validRange.GetLeft(); x <= validRange.GetRight(); x += 32)
+            for (int32_t x = validRange.GetLeft(); x <= validRange.GetRight(); x += COORDS_XY_STEP)
             {
-                auto* surfaceElement = map_get_surface_element_at({ x, y });
+                auto* surfaceElement = map_get_surface_element_at(CoordsXY{ x, y });
                 if (surfaceElement == nullptr)
                     continue;
 

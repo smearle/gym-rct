@@ -79,7 +79,7 @@ size_t Banner::FormatTextTo(void* argsV) const
  */
 static uint8_t banner_get_ride_index_at(int32_t x, int32_t y, int32_t z)
 {
-    TileElement* tileElement = map_get_first_element_at(x >> 5, y >> 5);
+    TileElement* tileElement = map_get_first_element_at({ x, y });
     ride_id_t resultRideIndex = RIDE_ID_NULL;
     if (tileElement == nullptr)
         return resultRideIndex;
@@ -93,7 +93,7 @@ static uint8_t banner_get_ride_index_at(int32_t x, int32_t y, int32_t z)
         if (ride == nullptr || ride_type_has_flag(ride->type, RIDE_TYPE_FLAG_IS_SHOP))
             continue;
 
-        if ((tileElement->clearance_height * 8) + 32 <= z)
+        if ((tileElement->GetClearanceZ()) + 32 <= z)
             continue;
 
         resultRideIndex = rideIndex;
@@ -162,7 +162,7 @@ TileElement* banner_get_tile_element(BannerIndex bannerIndex)
     auto banner = GetBanner(bannerIndex);
     if (banner != nullptr)
     {
-        auto tileElement = map_get_first_element_at(banner->position.x, banner->position.y);
+        auto tileElement = map_get_first_element_at(banner->position.ToCoordsXY());
         if (tileElement != nullptr)
         {
             do
@@ -183,7 +183,7 @@ WallElement* banner_get_scrolling_wall_tile_element(BannerIndex bannerIndex)
     if (banner == nullptr)
         return nullptr;
 
-    auto tileElement = map_get_first_element_at(banner->position.x, banner->position.y);
+    auto tileElement = map_get_first_element_at(banner->position.ToCoordsXY());
     if (tileElement == nullptr)
         return nullptr;
 
@@ -231,8 +231,8 @@ uint8_t banner_get_closest_ride_index(int32_t x, int32_t y, int32_t z)
         if (ride_type_has_flag(ride.type, RIDE_TYPE_FLAG_IS_SHOP))
             continue;
 
-        LocationXY8 location = ride.overall_view;
-        if (location.xy == RCT_XY8_UNDEFINED)
+        auto location = ride.overall_view;
+        if (location.isNull())
             continue;
 
         int32_t rideX = location.x * 32;
@@ -267,7 +267,7 @@ void fix_duplicated_banners()
     {
         for (int x = 0; x < MAXIMUM_MAP_SIZE_TECHNICAL; x++)
         {
-            auto tileElement = map_get_first_element_at(x, y);
+            auto tileElement = map_get_first_element_at(TileCoordsXY{ x, y }.ToCoordsXY());
             if (tileElement != nullptr)
             {
                 do
