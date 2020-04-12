@@ -36,11 +36,11 @@
 #include "world/Scenery.h"
 
 #include "Cheats.h"
-#include "actions/SetCheatAction.hpp"
 #include "actions/RideCreateAction.hpp"
 #include "actions/FootpathPlaceAction.hpp"
 #include "actions/PlaceParkEntranceAction.hpp"
 #include "actions/LandSetHeightAction.hpp"
+#include "actions/MazeSetTrackAction.hpp"
 
 #include <algorithm>
 
@@ -97,10 +97,11 @@ int act_i = 0;
 void GameState::Update()
 {
     // AGENT TESTING
-    // FIXME: remove this
+    // FIXME: remove this cash-reload
     gCash = 1000000;
-    int x_tiles = 256 * 5;
-    int y_tiles = 256 * 5;
+    int x_tiles = gParkSize * 2;
+    GetContext()->WriteLine(std::to_string(gParkSize));
+    int y_tiles = gParkSize * 2;
     int ax = rand() % x_tiles;
     int ay = rand() % y_tiles;
     int az = rand() % 140 + 2;
@@ -115,24 +116,24 @@ void GameState::Update()
     if (act_i == 0) {
     }
     auto rideCreateAction = RideCreateAction(0, 3, 1, 1);
-  //auto result2 = GameActions::Execute(&rideCreateAction);
+  //auto result_ride = GameActions::Execute(&rideCreateAction);
     auto footpathPlaceAction = FootpathPlaceAction({ax,ay,az}, 0, 0);
     auto landSetHeightAction = LandSetHeightAction({ax, ay}, az, 0);
-    auto result2 = GameActions::Execute(&landSetHeightAction);
-    rideCreateAction.SetCallback([](const GameAction* ga, const GameActionResult* result) {
-        if (result->Error == GA_ERROR::OK)
-        {
-            // Don't play sound if it is no cost to prevent multiple sounds. TODO: make this work in no money scenarios
-            if (result->Cost != 0)
-            {
-                audio_play_sound_at_location(SoundId::PlaceItem, result->Position);
-            }
-        }
-        else
-        {
-          //_footpathErrorOccured = true;
-        }
-    });
+    auto result_height = GameActions::Execute(&landSetHeightAction);
+  //rideCreateAction.SetCallback([](const GameAction* ga, const GameActionResult* result) {
+  //    if (result->Error == GA_ERROR::OK)
+  //    {
+  //        // Don't play sound if it is no cost to prevent multiple sounds. TODO: make this work in no money scenarios
+  //        if (result->Cost != 0)
+  //        {
+  //            audio_play_sound_at_location(SoundId::PlaceItem, result->Position);
+  //        }
+  //    }
+  //    else
+  //    {
+  //      //_footpathErrorOccured = true;
+  //    }
+  //});
   //window_maze_construction_open();
   //auto result = GameActions::Execute(&footpathPlaceAction);
     gInUpdateCode = true;
