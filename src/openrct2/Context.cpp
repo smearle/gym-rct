@@ -33,6 +33,7 @@
 #include "core/FileScanner.h"
 #include "core/FileStream.hpp"
 #include "core/Guard.hpp"
+#include "core/Http.h"
 #include "core/MemoryStream.h"
 #include "core/Path.hpp"
 #include "core/String.hpp"
@@ -45,7 +46,6 @@
 #include "localisation/Localisation.h"
 #include "localisation/LocalisationService.h"
 #include "network/DiscordService.h"
-#include "network/Http.h"
 #include "network/Twitch.h"
 #include "network/network.h"
 #include "object/ObjectManager.h"
@@ -99,9 +99,6 @@ namespace OpenRCT2
         std::unique_ptr<DiscordService> _discordService;
 #endif
         StdInOutConsole _stdInOutConsole;
-#ifndef DISABLE_HTTP
-        Networking::Http::Http _http;
-#endif
 
         // Game states
         std::unique_ptr<TitleScreen> _titleScreen;
@@ -243,8 +240,9 @@ namespace OpenRCT2
             if (Initialise())
             {
                 Launch();
+                return EXIT_SUCCESS;
             }
-            return gExitCode;
+            return EXIT_FAILURE;
         }
 
         void WriteLine(const std::string& s) override
@@ -416,6 +414,7 @@ namespace OpenRCT2
                 audio_init();
                 audio_populate_devices();
                 audio_init_ride_sounds_and_info();
+                gGameSoundsOff = !gConfigSound.master_sound_enabled;
             }
 
             network_set_env(_env);
@@ -720,15 +719,14 @@ namespace OpenRCT2
                     {
 #ifndef DISABLE_HTTP
                         // Download park and open it using its temporary filename
-                        void* data;
-                        size_t dataSize = Networking::Http::DownloadPark(gOpenRCT2StartupActionPath, &data);
-                        if (dataSize == 0)
+                        auto data = DownloadPark(gOpenRCT2StartupActionPath);
+                        if (data.empty())
                         {
                             title_load();
                             break;
                         }
 
-                        auto ms = MemoryStream(data, dataSize, MEMORY_ACCESS::OWNER);
+                        auto ms = MemoryStream(data.data(), data.size(), MEMORY_ACCESS::READ);
                         if (!LoadParkFromStream(&ms, gOpenRCT2StartupActionPath, true))
                         {
                             Console::Error::WriteLine("Failed to load '%s'", gOpenRCT2StartupActionPath);
@@ -1082,6 +1080,34 @@ namespace OpenRCT2
             }
             delete scanner;
         }
+
+#ifndef DISABLE_HTTP
+        std::vector<uint8_t> DownloadPark(const std::string& url)
+        {
+            // Download park to buffer in memory
+            Http::Request request;
+            request.url = url;
+            request.method = Http::Method::GET;
+
+            Http::Response res;
+            try
+            {
+                res = Do(request);
+                if (res.status != Http::Status::OK)
+                    throw std::runtime_error("bad http status");
+            }
+            catch (std::exception& e)
+            {
+                Console::Error::WriteLine("Failed to download '%s', cause %s", request.url.c_str(), e.what());
+                return {};
+            }
+
+            std::vector<uint8_t> parkData;
+            parkData.resize(res.body.size());
+            std::memcpy(parkData.data(), res.body.c_str(), parkData.size());
+            return parkData;
+        }
+#endif
     };
 
     Context* Context::Instance = nullptr;
@@ -1162,7 +1188,7 @@ ScreenCoordsXY context_get_cursor_position_scaled()
              static_cast<int32_t>(std::ceil(cursorCoords.y / gConfigGeneral.window_scale)) };
 }
 
-void context_set_cursor_position(ScreenCoordsXY cursorPosition)
+void context_set_cursor_position(const ScreenCoordsXY& cursorPosition)
 {
     GetContext()->GetUiContext()->SetCursorPosition(cursorPosition);
 }

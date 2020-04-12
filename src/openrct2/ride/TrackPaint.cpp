@@ -202,7 +202,7 @@ enum
 // clang-format on
 
 bool track_paint_util_has_fence(
-    enum edge_t edge, CoordsXY position, const TileElement* tileElement, Ride* ride, uint8_t rotation)
+    enum edge_t edge, const CoordsXY& position, const TileElement* tileElement, Ride* ride, uint8_t rotation)
 {
     TileCoordsXY offset;
     switch (edge)
@@ -221,14 +221,13 @@ bool track_paint_util_has_fence(
             break;
     }
 
-    int32_t entranceX = (position.x / 32) + offset.x;
-    int32_t entranceY = (position.y / 32) + offset.y;
+    auto entranceLoc = TileCoordsXY(position) + offset;
 
     int32_t entranceId = tileElement->AsTrack()->GetStationIndex();
     const TileCoordsXYZD entrance = ride_get_entrance_location(ride, entranceId);
     const TileCoordsXYZD exit = ride_get_exit_location(ride, entranceId);
 
-    return ((entrance.x != entranceX || entrance.y != entranceY) && (exit.x != entranceX || exit.y != entranceY));
+    return (entranceLoc != entrance && entranceLoc != exit);
 }
 
 void track_paint_util_paint_floor(
@@ -257,8 +256,8 @@ void track_paint_util_paint_floor(
 }
 
 void track_paint_util_paint_fences(
-    paint_session* session, uint8_t edges, CoordsXY position, const TileElement* tileElement, Ride* ride, uint32_t colourFlags,
-    uint16_t height, const uint32_t fenceSprites[4], uint8_t rotation)
+    paint_session* session, uint8_t edges, const CoordsXY& position, const TileElement* tileElement, Ride* ride,
+    uint32_t colourFlags, uint16_t height, const uint32_t fenceSprites[4], uint8_t rotation)
 {
     uint32_t imageId;
 
@@ -285,7 +284,7 @@ void track_paint_util_paint_fences(
 }
 
 /* Supports are only placed every 2 tiles for flat pieces*/
-bool track_paint_util_should_paint_supports(CoordsXY position)
+bool track_paint_util_should_paint_supports(const CoordsXY& position)
 {
     if ((position.x & (1 << 5)) == (position.y & (1 << 5)))
         return true;
@@ -885,8 +884,8 @@ void track_paint_util_draw_station_platform(
 }
 
 void track_paint_util_draw_pier(
-    paint_session* session, Ride* ride, const StationObject* stationObj, CoordsXY position, uint8_t direction, int32_t height,
-    const TileElement* tileElement, uint8_t rotation)
+    paint_session* session, Ride* ride, const StationObject* stationObj, const CoordsXY& position, uint8_t direction,
+    int32_t height, const TileElement* tileElement, uint8_t rotation)
 {
     bool hasFence;
     uint32_t imageId;
@@ -2170,16 +2169,18 @@ void track_paint(paint_session* session, uint8_t direction, int32_t height, cons
         int32_t trackSequence = tileElement->AsTrack()->GetSequenceIndex();
         int32_t trackColourScheme = tileElement->AsTrack()->GetColourScheme();
 
-        if ((session->ViewFlags & VIEWPORT_FLAG_TRACK_HEIGHTS) && dpi->zoom_level == 0)
+        if ((session->ViewFlags & VIEWPORT_FLAG_TRACK_HEIGHTS) && dpi->zoom_level <= 0)
         {
             session->InteractionType = VIEWPORT_INTERACTION_ITEM_NONE;
             if (TrackHeightMarkerPositions[trackType] & (1 << trackSequence))
             {
                 uint16_t ax = RideData5[ride->type].z_offset;
-                uint32_t ebx = 0x20381689 + (height + 8) / 16;
-                ebx += get_height_marker_offset();
-                ebx -= gMapBaseZ;
-                sub_98197C(session, ebx, 16, 16, 1, 1, 0, height + ax + 3, 1000, 1000, 2047);
+                // 0x1689 represents 0 height there are -127 to 128 heights above and below it
+                // There are 3 arrays of 256 heights (units, m, ft) chosen with the get_height_marker_offset()
+                uint32_t imageId = SPRITE_ID_PALETTE_COLOUR_1(COLOUR_LIGHT_BLUE) | (0x1689 + get_height_marker_offset());
+                auto heightNum = (height + 8) / 16 - gMapBaseZ;
+
+                sub_98197C(session, imageId + heightNum, 16, 16, 1, 1, 0, height + ax + 3, 1000, 1000, 2047);
             }
         }
 
@@ -2206,7 +2207,7 @@ void track_paint(paint_session* session, uint8_t direction, int32_t height, cons
             session->TrackColours[SCHEME_3] = ghost_id;
         }
 
-        TRACK_PAINT_FUNCTION_GETTER paintFunctionGetter = RideTypeTrackPaintFunctions[ride->type];
+        TRACK_PAINT_FUNCTION_GETTER paintFunctionGetter = RideTypeDescriptors[ride->type].TrackPaintFunction;
         if (paintFunctionGetter != nullptr)
         {
             TRACK_PAINT_FUNCTION paintFunction = paintFunctionGetter(trackType, direction);

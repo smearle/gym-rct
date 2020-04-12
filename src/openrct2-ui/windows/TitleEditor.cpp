@@ -47,8 +47,8 @@ static void window_title_editor_mousedown(rct_window * w, rct_widgetindex widget
 static void window_title_editor_dropdown(rct_window * w, rct_widgetindex widgetIndex, int32_t dropdownIndex);
 static void window_title_editor_update(rct_window * w);
 static void window_title_editor_scrollgetsize(rct_window * w, int32_t scrollIndex, int32_t * width, int32_t * height);
-static void window_title_editor_scrollmousedown(rct_window * w, int32_t scrollIndex, ScreenCoordsXY screenCoords);
-static void window_title_editor_scrollmouseover(rct_window * w, int32_t scrollIndex, ScreenCoordsXY screenCoords);
+static void window_title_editor_scrollmousedown(rct_window * w, int32_t scrollIndex, const ScreenCoordsXY& screenCoords);
+static void window_title_editor_scrollmouseover(rct_window * w, int32_t scrollIndex, const ScreenCoordsXY& screenCoords);
 static void window_title_editor_textinput(rct_window * w, rct_widgetindex widgetIndex, char * text);
 static void window_title_editor_invalidate(rct_window * w);
 static void window_title_editor_paint(rct_window * w, rct_drawpixelinfo * dpi);
@@ -555,8 +555,8 @@ static void window_title_editor_mousedown(rct_window* w, rct_widgetindex widgetI
 
                 widget--;
                 window_dropdown_show_text_custom_width(
-                    w->x + widget->left, w->y + widget->top, widget->bottom - widget->top + 1, w->colours[1], 0,
-                    DROPDOWN_FLAG_STAY_OPEN, numItems, widget->right - widget->left - 3);
+                    w->windowPos.x + widget->left, w->windowPos.y + widget->top, widget->bottom - widget->top + 1,
+                    w->colours[1], 0, DROPDOWN_FLAG_STAY_OPEN, numItems, widget->right - widget->left - 3);
                 dropdown_set_checked((int32_t)_selectedTitleSequence, true);
             }
             break;
@@ -616,7 +616,7 @@ static void window_title_editor_scrollgetsize(rct_window* w, int32_t scrollIndex
     *width = SCROLL_WIDTH;
 }
 
-static void window_title_editor_scrollmousedown(rct_window* w, int32_t scrollIndex, ScreenCoordsXY screenCoords)
+static void window_title_editor_scrollmousedown(rct_window* w, int32_t scrollIndex, const ScreenCoordsXY& screenCoords)
 {
     int32_t index = screenCoords.y / SCROLLABLE_ROW_HEIGHT;
     w->selected_list_item = -1;
@@ -639,7 +639,7 @@ static void window_title_editor_scrollmousedown(rct_window* w, int32_t scrollInd
     }
 }
 
-static void window_title_editor_scrollmouseover(rct_window* w, int32_t scrollIndex, ScreenCoordsXY screenCoords)
+static void window_title_editor_scrollmouseover(rct_window* w, int32_t scrollIndex, const ScreenCoordsXY& screenCoords)
 {
     int32_t index = screenCoords.y / SCROLLABLE_ROW_HEIGHT;
     switch (w->selected_tab)
@@ -827,13 +827,13 @@ static void window_title_editor_paint(rct_window* w, rct_drawpixelinfo* dpi)
         case WINDOW_TITLE_EDITOR_TAB_PRESETS:
             set_format_arg(0, uintptr_t, _sequenceName);
             gfx_draw_string_left(
-                dpi, STR_TITLE_SEQUENCE, nullptr, w->colours[1], w->x + 10,
-                w->y + window_title_editor_widgets[WIDX_TITLE_EDITOR_PRESETS].top + 1);
+                dpi, STR_TITLE_SEQUENCE, nullptr, w->colours[1], w->windowPos.x + 10,
+                w->windowPos.y + window_title_editor_widgets[WIDX_TITLE_EDITOR_PRESETS].top + 1);
             gfx_draw_string_left_clipped(
                 dpi, STR_STRING, gCommonFormatArgs, w->colours[1],
-                w->x + window_title_editor_widgets[WIDX_TITLE_EDITOR_PRESETS].left + 1,
-                w->y + window_title_editor_widgets[WIDX_TITLE_EDITOR_PRESETS].top,
-                w->x + window_title_editor_widgets[WIDX_TITLE_EDITOR_PRESETS_DROPDOWN].left
+                w->windowPos.x + window_title_editor_widgets[WIDX_TITLE_EDITOR_PRESETS].left + 1,
+                w->windowPos.y + window_title_editor_widgets[WIDX_TITLE_EDITOR_PRESETS].top,
+                w->windowPos.x + window_title_editor_widgets[WIDX_TITLE_EDITOR_PRESETS_DROPDOWN].left
                     - window_title_editor_widgets[WIDX_TITLE_EDITOR_PRESETS].left - 4);
             break;
         case WINDOW_TITLE_EDITOR_TAB_SAVES:
@@ -1049,8 +1049,8 @@ static void window_title_editor_draw_tab_images(rct_drawpixelinfo* dpi, rct_wind
             y = 1;
         }
         gfx_draw_sprite(
-            dpi, spriteId, w->x + w->widgets[WIDX_TITLE_EDITOR_PRESETS_TAB + i].left + x,
-            w->y + w->widgets[WIDX_TITLE_EDITOR_PRESETS_TAB + i].top + y, 0);
+            dpi, spriteId, w->windowPos.x + w->widgets[WIDX_TITLE_EDITOR_PRESETS_TAB + i].left + x,
+            w->windowPos.y + w->widgets[WIDX_TITLE_EDITOR_PRESETS_TAB + i].top + y, 0);
     }
 }
 

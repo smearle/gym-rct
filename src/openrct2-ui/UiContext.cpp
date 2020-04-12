@@ -246,7 +246,7 @@ public:
         return cursorPosition;
     }
 
-    void SetCursorPosition(ScreenCoordsXY cursorPosition) override
+    void SetCursorPosition(const ScreenCoordsXY& cursorPosition) override
     {
         SDL_WarpMouseInWindow(nullptr, cursorPosition.x, cursorPosition.y);
     }
@@ -557,10 +557,10 @@ public:
 
         // Set window position to default display
         int32_t defaultDisplay = std::clamp(gConfigGeneral.default_display, 0, 0xFFFF);
-        int32_t x = SDL_WINDOWPOS_UNDEFINED_DISPLAY(defaultDisplay);
-        int32_t y = SDL_WINDOWPOS_UNDEFINED_DISPLAY(defaultDisplay);
+        auto windowPos = ScreenCoordsXY{ static_cast<int32_t>(SDL_WINDOWPOS_UNDEFINED_DISPLAY(defaultDisplay)),
+                                         static_cast<int32_t>(SDL_WINDOWPOS_UNDEFINED_DISPLAY(defaultDisplay)) };
 
-        CreateWindow(x, y);
+        CreateWindow(windowPos);
 
         // Check if steam overlay renderer is loaded into the process
         _steamOverlayActive = _platformUiContext->IsSteamOverlayAttached();
@@ -579,12 +579,12 @@ public:
     void RecreateWindow() override
     {
         // Use the position of the current window for the new window
-        int32_t x, y;
+        ScreenCoordsXY windowPos;
         SDL_SetWindowFullscreen(_window, 0);
-        SDL_GetWindowPosition(_window, &x, &y);
+        SDL_GetWindowPosition(_window, &windowPos.x, &windowPos.y);
 
         CloseWindow();
-        CreateWindow(x, y);
+        CreateWindow(windowPos);
     }
 
     void ShowMessageBox(const std::string& message) override
@@ -629,7 +629,7 @@ public:
     }
 
 private:
-    void CreateWindow(int32_t x, int32_t y)
+    void CreateWindow(const ScreenCoordsXY& windowPos)
     {
         // Get saved window size
         int32_t width = gConfigGeneral.window_width;
@@ -646,7 +646,7 @@ private:
             flags |= SDL_WINDOW_OPENGL;
         }
 
-        _window = SDL_CreateWindow(OPENRCT2_NAME, x, y, width, height, flags);
+        _window = SDL_CreateWindow(OPENRCT2_NAME, windowPos.x, windowPos.y, width, height, flags);
         if (_window == nullptr)
         {
             SDLException::Throw("SDL_CreateWindow(...)");
@@ -794,10 +794,10 @@ private:
                 auto vp = original_w->viewport;
                 if (vp != nullptr)
                 {
-                    left = std::max<int16_t>(left, vp->x);
-                    right = std::min<int16_t>(right, vp->x + vp->width);
-                    top = std::max<int16_t>(top, vp->y);
-                    bottom = std::min<int16_t>(bottom, vp->y + vp->height);
+                    left = std::max<int16_t>(left, vp->pos.x);
+                    right = std::min<int16_t>(right, vp->pos.x + vp->width);
+                    top = std::max<int16_t>(top, vp->pos.y);
+                    bottom = std::min<int16_t>(bottom, vp->pos.y + vp->height);
                     if (left < right && top < bottom)
                     {
                         auto width = right - left;
@@ -809,7 +809,7 @@ private:
             }
 
             w = it->get();
-            if (right <= w->x || bottom <= w->y)
+            if (right <= w->windowPos.x || bottom <= w->windowPos.y)
             {
                 continue;
             }
@@ -819,14 +819,14 @@ private:
                 continue;
             }
 
-            if (left >= w->x)
+            if (left >= w->windowPos.x)
             {
                 break;
             }
 
-            DrawRainWindow(rainDrawer, original_w, left, w->x, top, bottom, drawFunc);
+            DrawRainWindow(rainDrawer, original_w, left, w->windowPos.x, top, bottom, drawFunc);
 
-            left = w->x;
+            left = w->windowPos.x;
             DrawRainWindow(rainDrawer, original_w, left, right, top, bottom, drawFunc);
             return;
         }
@@ -841,11 +841,11 @@ private:
             return;
         }
 
-        if (top < w->y)
+        if (top < w->windowPos.y)
         {
-            DrawRainWindow(rainDrawer, original_w, left, right, top, w->y, drawFunc);
+            DrawRainWindow(rainDrawer, original_w, left, right, top, w->windowPos.y, drawFunc);
 
-            top = w->y;
+            top = w->windowPos.y;
             DrawRainWindow(rainDrawer, original_w, left, right, top, bottom, drawFunc);
             return;
         }

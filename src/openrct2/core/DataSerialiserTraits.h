@@ -141,14 +141,15 @@ template<> struct DataSerializerTraits<NetworkPlayerId_t>
 {
     static void encode(IStream* stream, const NetworkPlayerId_t& val)
     {
-        uint32_t temp = ByteSwapBE(val.id);
+        uint32_t temp = static_cast<uint32_t>(val.id);
+        temp = ByteSwapBE(temp);
         stream->Write(&temp);
     }
     static void decode(IStream* stream, NetworkPlayerId_t& val)
     {
         uint32_t temp;
         stream->Read(&temp);
-        val.id = ByteSwapBE(temp);
+        val.id = static_cast<decltype(val.id)>(ByteSwapBE(temp));
     }
     static void log(IStream* stream, const NetworkPlayerId_t& val)
     {
@@ -175,14 +176,15 @@ template<> struct DataSerializerTraits<NetworkRideId_t>
 {
     static void encode(IStream* stream, const NetworkRideId_t& val)
     {
-        uint32_t temp = ByteSwapBE(val.id);
+        uint32_t temp = static_cast<uint32_t>(val.id);
+        temp = ByteSwapBE(temp);
         stream->Write(&temp);
     }
     static void decode(IStream* stream, NetworkRideId_t& val)
     {
         uint32_t temp;
         stream->Read(&temp);
-        val.id = ByteSwapBE(temp);
+        val.id = static_cast<decltype(val.id)>(ByteSwapBE(temp));
     }
     static void log(IStream* stream, const NetworkRideId_t& val)
     {
@@ -428,7 +430,7 @@ template<> struct DataSerializerTraits<TileElement>
     static void encode(IStream* stream, const TileElement& tileElement)
     {
         stream->WriteValue(tileElement.type);
-        stream->WriteValue(tileElement.flags);
+        stream->WriteValue(tileElement.Flags);
         stream->WriteValue(tileElement.base_height);
         stream->WriteValue(tileElement.clearance_height);
         for (int i = 0; i < 4; ++i)
@@ -443,7 +445,7 @@ template<> struct DataSerializerTraits<TileElement>
     static void decode(IStream* stream, TileElement& tileElement)
     {
         tileElement.type = stream->ReadValue<uint8_t>();
-        tileElement.flags = stream->ReadValue<uint8_t>();
+        tileElement.Flags = stream->ReadValue<uint8_t>();
         tileElement.base_height = stream->ReadValue<uint8_t>();
         tileElement.clearance_height = stream->ReadValue<uint8_t>();
         for (int i = 0; i < 4; ++i)
@@ -459,7 +461,7 @@ template<> struct DataSerializerTraits<TileElement>
     {
         char msg[128] = {};
         snprintf(
-            msg, sizeof(msg), "TileElement(type = %u, flags = %u, base_height = %u)", tileElement.type, tileElement.flags,
+            msg, sizeof(msg), "TileElement(type = %u, flags = %u, base_height = %u)", tileElement.type, tileElement.Flags,
             tileElement.base_height);
         stream->Write(msg, strlen(msg));
     }

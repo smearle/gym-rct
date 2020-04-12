@@ -41,7 +41,7 @@ public:
     LandSmoothAction()
     {
     }
-    LandSmoothAction(CoordsXY coords, MapRange range, uint8_t selectionType, bool isLowering)
+    LandSmoothAction(const CoordsXY& coords, MapRange range, uint8_t selectionType, bool isLowering)
         : _coords(coords)
         , _range(range)
         , _selectionType(selectionType)
@@ -73,7 +73,7 @@ public:
 
 private:
     GameActionResult::Ptr SmoothLandTile(
-        int32_t direction, bool isExecuting, int32_t x, int32_t y, SurfaceElement* surfaceElement) const
+        int32_t direction, bool isExecuting, const CoordsXY& loc, SurfaceElement* surfaceElement) const
     {
         int32_t targetBaseZ = surfaceElement->base_height;
         int32_t slope = surfaceElement->GetSlope();
@@ -96,7 +96,7 @@ private:
             }
         }
 
-        auto landSetHeightAction = LandSetHeightAction({ x, y }, targetBaseZ, slope);
+        auto landSetHeightAction = LandSetHeightAction(loc, targetBaseZ, slope);
         landSetHeightAction.SetFlags(GetFlags());
         auto res = isExecuting ? GameActions::ExecuteNested(&landSetHeightAction)
                                : GameActions::QueryNested(&landSetHeightAction);
@@ -105,8 +105,8 @@ private:
     }
 
     money32 SmoothLandRowByEdge(
-        bool isExecuting, CoordsXY loc, int32_t expectedLandHeight1, int32_t expectedLandHeight2, int32_t stepX, int32_t stepY,
-        int32_t direction1, int32_t direction2, int32_t checkDirection1, int32_t checkDirection2) const
+        bool isExecuting, const CoordsXY& loc, int32_t expectedLandHeight1, int32_t expectedLandHeight2, int32_t stepX,
+        int32_t stepY, int32_t direction1, int32_t direction2, int32_t checkDirection1, int32_t checkDirection2) const
     {
         uint8_t shouldContinue = 0xF;
         int32_t landChangePerTile = _isLowering ? 2 : -2;
@@ -249,7 +249,7 @@ private:
     }
 
     money32 SmoothLandRowByCorner(
-        bool isExecuting, CoordsXY loc, int32_t expectedLandHeight, int32_t stepX, int32_t stepY, int32_t direction,
+        bool isExecuting, const CoordsXY& loc, int32_t expectedLandHeight, int32_t stepX, int32_t stepY, int32_t direction,
         int32_t checkDirection) const
     {
         bool shouldContinue = true;
@@ -327,7 +327,7 @@ private:
             }
             expectedLandHeight += landChangePerTile;
             // change land of current tile
-            auto result = SmoothLandTile(direction, isExecuting, nextLoc.x, nextLoc.y, surfaceElement);
+            auto result = SmoothLandTile(direction, isExecuting, nextLoc, surfaceElement);
             if (result->Error == GA_ERROR::OK)
             {
                 totalCost += result->Cost;

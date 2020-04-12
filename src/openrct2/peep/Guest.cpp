@@ -957,7 +957,7 @@ void Guest::Tick128UpdateGuest(int32_t index)
                 {
                     /* Peep happiness is affected once the peep has been waiting
                      * too long in a queue. */
-                    TileElement* tileElement = map_get_first_element_at({ next_x, next_y });
+                    TileElement* tileElement = map_get_first_element_at(NextLoc);
                     bool found = false;
                     do
                     {
@@ -965,7 +965,7 @@ void Guest::Tick128UpdateGuest(int32_t index)
                             break;
                         if (tileElement->GetType() != TILE_ELEMENT_TYPE_PATH)
                             continue;
-                        if (tileElement->base_height != next_z)
+                        if (tileElement->GetBaseZ() != NextLoc.z)
                             continue;
 
                         // Check if the footpath has a queue line TV monitor on it
@@ -1228,8 +1228,7 @@ void Guest::UpdateSitting()
         if (!(pathingResult & PATHING_DESTINATION_REACHED))
             return;
 
-        auto loc = CoordsXYZ{ x, y, z }.ToTileStart()
-            + CoordsXYZ{ BenchUseOffsets[var_37 & 0x7].x, BenchUseOffsets[var_37 & 0x7].y, 0 };
+        auto loc = CoordsXYZ{ x, y, z }.ToTileStart() + CoordsXYZ{ BenchUseOffsets[var_37 & 0x7], 0 };
 
         MoveTo(loc.x, loc.y, loc.z);
 
@@ -2272,7 +2271,7 @@ bool Guest::ShouldGoToShop(Ride* ride, bool peepAtShop)
 
         // The amount that peeps are willing to pay to use the Toilets scales with their bathroom stat.
         // It effectively has a minimum of $0.10 (due to the check above) and a maximum of $0.60.
-        if (ride->price * 40 > toilet)
+        if (ride_get_price(ride) * 40 > toilet)
         {
             if (peepAtShop)
             {
@@ -2298,7 +2297,8 @@ bool Guest::ShouldGoToShop(Ride* ride, bool peepAtShop)
     }
 
     // Basic price checks
-    if (ride->price != 0 && ride->price > cash_in_pocket)
+    auto ridePrice = ride_get_price(ride);
+    if (ridePrice != 0 && ridePrice > cash_in_pocket)
     {
         if (peepAtShop)
         {
@@ -2357,7 +2357,7 @@ void Guest::SpendMoney(money16& peep_expend_type, money32 amount, ExpenditureTyp
         //      needing to be synchronised
         if (network_get_mode() == NETWORK_MODE_NONE && !gOpenRCT2Headless)
         {
-            rct_money_effect::CreateAt(amount, x, y, z, true);
+            MoneyEffect::CreateAt(amount, x, y, z, true);
         }
     }
 
@@ -2457,7 +2457,7 @@ static void peep_ride_is_too_intense(Guest* peep, Ride* ride, bool peepAtRide)
  *
  *  rct2: 0x00691C6E
  */
-static rct_vehicle* peep_choose_car_from_ride(Peep* peep, Ride* ride, std::vector<uint8_t>& car_array)
+static Vehicle* peep_choose_car_from_ride(Peep* peep, Ride* ride, std::vector<uint8_t>& car_array)
 {
     uint8_t chosen_car = scenario_rand();
     if (ride_type_has_flag(ride->type, RIDE_TYPE_FLAG_HAS_G_FORCES) && ((chosen_car & 0xC) != 0xC))
@@ -2471,7 +2471,7 @@ static rct_vehicle* peep_choose_car_from_ride(Peep* peep, Ride* ride, std::vecto
 
     peep->current_car = car_array[chosen_car];
 
-    rct_vehicle* vehicle = GET_VEHICLE(ride->vehicles[peep->current_train]);
+    Vehicle* vehicle = GET_VEHICLE(ride->vehicles[peep->current_train]);
 
     for (int32_t i = peep->current_car; i > 0; --i)
     {
@@ -2485,7 +2485,7 @@ static rct_vehicle* peep_choose_car_from_ride(Peep* peep, Ride* ride, std::vecto
  *
  *  rct2: 0x00691CD1
  */
-static void peep_choose_seat_from_car(Peep* peep, Ride* ride, rct_vehicle* vehicle)
+static void peep_choose_seat_from_car(Peep* peep, Ride* ride, Vehicle* vehicle)
 {
     uint8_t chosen_seat = vehicle->next_free_seat;
 
@@ -2508,22 +2508,18 @@ static void peep_choose_seat_from_car(Peep* peep, Ride* ride, rct_vehicle* vehic
  *
  *  rct2: 0x00691D27
  */
-static void peep_go_to_ride_entrance(Guest* peep, Ride* ride)
+void Guest::GoToRideEntrance(Ride* ride)
 {
-    TileCoordsXYZD location = ride_get_entrance_location(ride, peep->current_ride_station);
-    Guard::Assert(!location.isNull());
-    int32_t x = location.x;
-    int32_t y = location.y;
+    TileCoordsXYZD tileLocation = ride_get_entrance_location(ride, current_ride_station);
+    if (tileLocation.isNull())
+    {
+        RemoveFromQueue();
+        return;
+    }
 
-    uint8_t direction = location.direction;
-
-    x *= 32;
-    y *= 32;
-    x += 16;
-    y += 16;
-
-    int16_t x_shift = DirectionOffsets[direction].x;
-    int16_t y_shift = DirectionOffsets[direction].y;
+    auto location = tileLocation.ToCoordsXYZD().ToTileCentre();
+    int16_t x_shift = DirectionOffsets[location.direction].x;
+    int16_t y_shift = DirectionOffsets[location.direction].y;
 
     uint8_t shift_multiplier = 21;
     rct_ride_entry* rideEntry = get_ride_entry(ride->subtype);
@@ -2540,23 +2536,23 @@ static void peep_go_to_ride_entrance(Guest* peep, Ride* ride)
     x_shift *= shift_multiplier;
     y_shift *= shift_multiplier;
 
-    x += x_shift;
-    y += y_shift;
+    location.x += x_shift;
+    location.y += y_shift;
 
-    peep->destination_x = x;
-    peep->destination_y = y;
-    peep->destination_tolerance = 2;
+    destination_x = location.x;
+    destination_y = location.y;
+    destination_tolerance = 2;
 
-    peep->SetState(PEEP_STATE_ENTERING_RIDE);
-    peep->sub_state = PEEP_RIDE_IN_ENTRANCE;
+    SetState(PEEP_STATE_ENTERING_RIDE);
+    sub_state = PEEP_RIDE_IN_ENTRANCE;
 
-    peep->rejoin_queue_timeout = 0;
-    peep->time_on_ride = 0;
+    rejoin_queue_timeout = 0;
+    time_on_ride = 0;
 
-    peep->RemoveFromQueue();
+    RemoveFromQueue();
 }
 
-static bool peep_find_vehicle_to_enter(Guest* peep, Ride* ride, std::vector<uint8_t>& car_array)
+bool Guest::FindVehicleToEnter(Ride* ride, std::vector<uint8_t>& car_array)
 {
     uint8_t chosen_train = RideStation::NO_TRAIN;
 
@@ -2567,7 +2563,7 @@ static bool peep_find_vehicle_to_enter(Guest* peep, Ride* ride, std::vector<uint
 
         for (int32_t i = 0; i < ride->num_vehicles; ++i)
         {
-            rct_vehicle* vehicle = GET_VEHICLE(ride->vehicles[i]);
+            Vehicle* vehicle = GET_VEHICLE(ride->vehicles[i]);
 
             if (vehicle->next_free_seat >= vehicle->num_seats)
                 continue;
@@ -2580,19 +2576,19 @@ static bool peep_find_vehicle_to_enter(Guest* peep, Ride* ride, std::vector<uint
     }
     else
     {
-        chosen_train = ride->stations[peep->current_ride_station].TrainAtStation;
+        chosen_train = ride->stations[current_ride_station].TrainAtStation;
     }
     if (chosen_train == RideStation::NO_TRAIN || chosen_train >= MAX_VEHICLES_PER_RIDE)
     {
         return false;
     }
 
-    peep->current_train = chosen_train;
+    current_train = chosen_train;
 
     int32_t i = 0;
 
     uint16_t vehicle_id = ride->vehicles[chosen_train];
-    rct_vehicle* vehicle = nullptr;
+    Vehicle* vehicle = nullptr;
 
     for (; vehicle_id != SPRITE_INDEX_NULL; vehicle_id = vehicle->next_vehicle_on_train, i++)
     {
@@ -2604,9 +2600,9 @@ static bool peep_find_vehicle_to_enter(Guest* peep, Ride* ride, std::vector<uint
             num_seats &= VEHICLE_SEAT_NUM_MASK;
             if (vehicle->next_free_seat & 1)
             {
-                peep->current_car = i;
-                peep_choose_seat_from_car(peep, ride, vehicle);
-                peep_go_to_ride_entrance(peep, ride);
+                current_car = i;
+                peep_choose_seat_from_car(this, ride, vehicle);
+                GoToRideEntrance(ride);
                 return false;
             }
         }
@@ -3017,7 +3013,7 @@ static PeepThoughtType peep_assess_surroundings(int16_t centre_x, int16_t centre
         }
     }
 
-    rct_litter* litter;
+    Litter* litter;
     for (uint16_t sprite_idx = gSpriteListHead[SPRITE_LIST_LITTER]; sprite_idx != SPRITE_INDEX_NULL; sprite_idx = litter->next)
     {
         litter = &(get_sprite(sprite_idx)->litter);
@@ -3233,9 +3229,8 @@ template<typename T> static void peep_head_for_nearest_ride(Guest* peep, bool co
         auto ride = get_ride(potentialRides[i]);
         if (ride != nullptr)
         {
-            int32_t rideX = ride->stations[0].Start.x * 32;
-            int32_t rideY = ride->stations[0].Start.y * 32;
-            int32_t distance = abs(rideX - peep->x) + abs(rideY - peep->y);
+            auto rideLocation = ride->stations[0].Start;
+            int32_t distance = abs(rideLocation.x - peep->x) + abs(rideLocation.y - peep->y);
             if (distance < closestRideDistance)
             {
                 closestRide = ride;
@@ -3384,8 +3379,8 @@ void Guest::UpdateBuying()
             window_invalidate_by_number(WC_PEEP, sprite_index);
         }
         sprite_direction ^= 0x10;
-        destination_x = next_x + 16;
-        destination_y = next_y + 16;
+        destination_x = NextLoc.x + 16;
+        destination_y = NextLoc.y + 16;
         direction = direction_reverse(direction);
 
         SetState(PEEP_STATE_WALKING);
@@ -3483,8 +3478,8 @@ void Guest::UpdateRideAtEntrance()
             int16_t actionZ = z;
             if (xy_distance < 16)
             {
-                auto entrance = ride_get_entrance_location(ride, current_ride_station);
-                actionZ = entrance.z * 8 + 2;
+                auto entrance = ride_get_entrance_location(ride, current_ride_station).ToCoordsXYZ();
+                actionZ = entrance.z + 2;
             }
             MoveTo((*loc).x, (*loc).y, actionZ);
         }
@@ -3505,7 +3500,7 @@ void Guest::UpdateRideAtEntrance()
     }
     else
     {
-        if (!peep_find_vehicle_to_enter(this, ride, carArray))
+        if (!FindVehicleToEnter(ride, carArray))
             return;
     }
 
@@ -3527,10 +3522,10 @@ void Guest::UpdateRideAtEntrance()
 
     if (!ride_type_has_flag(ride->type, RIDE_TYPE_FLAG_NO_VEHICLES))
     {
-        rct_vehicle* vehicle = peep_choose_car_from_ride(this, ride, carArray);
+        Vehicle* vehicle = peep_choose_car_from_ride(this, ride, carArray);
         peep_choose_seat_from_car(this, ride, vehicle);
     }
-    peep_go_to_ride_entrance(this, ride);
+    GoToRideEntrance(ride);
 }
 
 /** rct2: 0x00981FD4, 0x00981FD6 */
@@ -3541,11 +3536,9 @@ static constexpr const CoordsXY _MazeEntranceStart[] = {
     { 24, 8 },
 };
 
-static void peep_update_ride_leave_entrance_maze(Guest* peep, Ride* ride, TileCoordsXYZD& entrance_loc)
+static void peep_update_ride_leave_entrance_maze(Guest* peep, Ride* ride, CoordsXYZD& entrance_loc)
 {
     peep->maze_last_edge = entrance_loc.direction + 1;
-    entrance_loc.x *= 32;
-    entrance_loc.y *= 32;
 
     entrance_loc.x += CoordsDirectionDelta[entrance_loc.direction].x;
     entrance_loc.y += CoordsDirectionDelta[entrance_loc.direction].y;
@@ -3574,10 +3567,9 @@ static void peep_update_ride_leave_entrance_maze(Guest* peep, Ride* ride, TileCo
     peep->sub_state = PEEP_RIDE_MAZE_PATHFINDING;
 }
 
-static void peep_update_ride_leave_entrance_spiral_slide(Guest* peep, Ride* ride, TileCoordsXYZD& entrance_loc)
+static void peep_update_ride_leave_entrance_spiral_slide(Guest* peep, Ride* ride, CoordsXYZD& entrance_loc)
 {
-    entrance_loc.x = ride->stations[peep->current_ride_station].Start.x * 32;
-    entrance_loc.y = ride->stations[peep->current_ride_station].Start.y * 32;
+    entrance_loc = { ride->stations[peep->current_ride_station].GetStart(), entrance_loc.direction };
 
     TileElement* tile_element = ride_get_station_start_track_element(ride, peep->current_ride_station);
 
@@ -3585,10 +3577,7 @@ static void peep_update_ride_leave_entrance_spiral_slide(Guest* peep, Ride* ride
 
     peep->var_37 = (entrance_loc.direction << 2) | (direction_track << 4);
 
-    const CoordsXY slidePlatformDestination = SpiralSlideWalkingPath[peep->var_37];
-
-    entrance_loc.x += slidePlatformDestination.x;
-    entrance_loc.y += slidePlatformDestination.y;
+    entrance_loc += SpiralSlideWalkingPath[peep->var_37];
 
     peep->destination_x = entrance_loc.x;
     peep->destination_y = entrance_loc.y;
@@ -3631,7 +3620,7 @@ static void peep_update_ride_leave_entrance_waypoints(Peep* peep, Ride* ride)
     Guard::Assert(!entranceLocation.isNull());
     uint8_t direction_entrance = entranceLocation.direction;
 
-    CoordsXY waypoint = ride->stations[peep->current_ride_station].Start.ToCoordsXY().ToTileCentre();
+    CoordsXY waypoint = ride->stations[peep->current_ride_station].Start.ToTileCentre();
 
     TileElement* tile_element = ride_get_station_start_track_element(ride, peep->current_ride_station);
 
@@ -3705,7 +3694,7 @@ void Guest::UpdateRideAdvanceThroughEntrance()
     Guard::Assert(sub_state == PEEP_RIDE_LEAVE_ENTRANCE, "Peep substate should be LEAVE_ENTRANCE");
     if (ride_type_has_flag(ride->type, RIDE_TYPE_FLAG_NO_VEHICLES))
     {
-        TileCoordsXYZD entranceLocation = ride_get_entrance_location(ride, current_ride_station);
+        auto entranceLocation = ride_get_entrance_location(ride, current_ride_station).ToCoordsXYZD();
         Guard::Assert(!entranceLocation.isNull());
 
         if (ride->type == RIDE_TYPE_MAZE)
@@ -3738,7 +3727,7 @@ void Guest::UpdateRideAdvanceThroughEntrance()
         }
     }
 
-    rct_vehicle* vehicle = GET_VEHICLE(ride->vehicles[current_train]);
+    Vehicle* vehicle = GET_VEHICLE(ride->vehicles[current_train]);
     for (int32_t i = current_car; i != 0; --i)
     {
         vehicle = GET_VEHICLE(vehicle->next_vehicle_on_train);
@@ -3959,7 +3948,7 @@ void Guest::UpdateRideFreeVehicleCheck()
         return;
     }
 
-    rct_vehicle* vehicle = GET_VEHICLE(ride->vehicles[current_train]);
+    Vehicle* vehicle = GET_VEHICLE(ride->vehicles[current_train]);
     for (int32_t i = current_car; i != 0; --i)
     {
         vehicle = GET_VEHICLE(vehicle->next_vehicle_on_train);
@@ -3980,8 +3969,8 @@ void Guest::UpdateRideFreeVehicleCheck()
             if (ride->vehicles[i] == SPRITE_INDEX_NULL)
                 continue;
 
-            rct_vehicle* train = GET_VEHICLE(ride->vehicles[i]);
-            rct_vehicle* second_vehicle = GET_VEHICLE(train->next_vehicle_on_train);
+            Vehicle* train = GET_VEHICLE(ride->vehicles[i]);
+            Vehicle* second_vehicle = GET_VEHICLE(train->next_vehicle_on_train);
 
             if (second_vehicle->num_peeps == 0)
                 continue;
@@ -4017,7 +4006,7 @@ void Guest::UpdateRideFreeVehicleCheck()
         }
     }
 
-    rct_vehicle* currentTrain = GET_VEHICLE(ride->vehicles[current_train]);
+    Vehicle* currentTrain = GET_VEHICLE(ride->vehicles[current_train]);
     if (ride->status == RIDE_STATUS_OPEN && ++rejoin_queue_timeout != 0
         && !(currentTrain->update_flags & VEHICLE_UPDATE_FLAG_TRAIN_READY_DEPART))
     {
@@ -4090,7 +4079,7 @@ void Guest::UpdateRideEnterVehicle()
             ride->cur_num_customers++;
 
             vehicle->mass += mass;
-            invalidate_sprite_2(reinterpret_cast<rct_sprite*>(vehicle));
+            invalidate_sprite_2(vehicle);
 
             MoveTo(LOCATION_NULL, 0, 0);
 
@@ -4113,7 +4102,7 @@ void Guest::UpdateRideLeaveVehicle()
     if (ride == nullptr)
         return;
 
-    rct_vehicle* vehicle = GET_VEHICLE(ride->vehicles[current_train]);
+    Vehicle* vehicle = GET_VEHICLE(ride->vehicles[current_train]);
     uint8_t ride_station = vehicle->current_station;
 
     for (int32_t i = current_car; i != 0; --i)
@@ -4136,13 +4125,13 @@ void Guest::UpdateRideLeaveVehicle()
 
     vehicle->num_peeps--;
     vehicle->mass -= mass;
-    invalidate_sprite_2((rct_sprite*)vehicle);
+    invalidate_sprite_2(vehicle);
 
     if (ride_station >= MAX_STATIONS)
     {
         // HACK #5658: Some parks have hacked rides which end up in this state
-        int8_t bestStationIndex = ride_get_first_valid_station_exit(ride);
-        if (bestStationIndex == -1)
+        auto bestStationIndex = ride_get_first_valid_station_exit(ride);
+        if (bestStationIndex == STATION_INDEX_NULL)
         {
             bestStationIndex = 0;
         }
@@ -4166,7 +4155,7 @@ void Guest::UpdateRideLeaveVehicle()
 
         platformLocation.direction = direction_reverse(exitLocation.direction);
 
-        if (!ride_type_has_flag(ride->type, RIDE_TYPE_FLAG_16))
+        if (!ride_type_has_flag(ride->type, RIDE_TYPE_FLAG_VEHICLE_IS_INTEGRAL))
         {
             for (; !vehicle->IsHead(); vehicle = GET_VEHICLE(vehicle->prev_vehicle_on_ride))
             {
@@ -4174,18 +4163,18 @@ void Guest::UpdateRideLeaveVehicle()
                 if (trackType == TRACK_ELEM_FLAT || trackType > TRACK_ELEM_MIDDLE_STATION)
                     continue;
 
-                TileElement* inner_map = map_get_first_element_at({ vehicle->track_x, vehicle->track_y });
+                TileElement* inner_map = map_get_first_element_at(vehicle->TrackLocation);
                 if (inner_map == nullptr)
                     continue;
                 for (;; inner_map++)
                 {
                     if (inner_map->GetType() != TILE_ELEMENT_TYPE_TRACK)
                         continue;
-                    if (inner_map->GetBaseZ() == vehicle->track_z)
+                    if (inner_map->GetBaseZ() == vehicle->TrackLocation.z)
                         break;
                 }
 
-                uint8_t stationIndex = inner_map->AsTrack()->GetStationIndex();
+                auto stationIndex = inner_map->AsTrack()->GetStationIndex();
                 if (stationIndex == current_ride_station)
                     break;
             }
@@ -4209,7 +4198,7 @@ void Guest::UpdateRideLeaveVehicle()
                     specialDirection = ((vehicle->sprite_direction + 3) / 8) + 1;
                     specialDirection &= 3;
 
-                    if (vehicle->var_CD == 6)
+                    if (vehicle->TrackSubposition == VEHICLE_TRACK_SUBPOSITION_GO_KARTS_RIGHT_LANE)
                         specialDirection = direction_reverse(specialDirection);
                 }
             }
@@ -4263,17 +4252,15 @@ void Guest::UpdateRideLeaveVehicle()
         return;
     }
 
-    TileCoordsXYZD exitLocation = ride_get_exit_location(ride, current_ride_station);
+    auto exitLocation = ride_get_exit_location(ride, current_ride_station).ToCoordsXYZD();
     Guard::Assert(!exitLocation.isNull());
-    CoordsXYZ waypointLoc;
 
-    waypointLoc.z = (int16_t)exitLocation.z * 8 + RideData5[ride->type].z;
-    waypointLoc.x = ride->stations[current_ride_station].Start.x * 32 + 16;
-    waypointLoc.y = ride->stations[current_ride_station].Start.y * 32 + 16;
+    auto waypointLoc = CoordsXYZ{ ride->stations[current_ride_station].Start.ToTileCentre(),
+                                  exitLocation.z + RideData5[ride->type].z };
 
     TileElement* trackElement = ride_get_station_start_track_element(ride, current_ride_station);
 
-    uint8_t station_direction = (trackElement == nullptr ? 0 : trackElement->GetDirection());
+    Direction station_direction = (trackElement == nullptr ? 0 : trackElement->GetDirection());
 
     vehicle = GET_VEHICLE(ride->vehicles[current_train]);
 
@@ -4460,11 +4447,9 @@ void Guest::UpdateRideApproachVehicleWaypoints()
     // This is incrementing the actual peep waypoint
     var_37++;
 
-    rct_vehicle* vehicle = GET_VEHICLE(ride->vehicles[current_train]);
+    Vehicle* vehicle = GET_VEHICLE(ride->vehicles[current_train]);
 
-    CoordsXY targetLoc;
-    targetLoc.x = ride->stations[current_ride_station].Start.x * 32 + 16;
-    targetLoc.y = ride->stations[current_ride_station].Start.y * 32 + 16;
+    CoordsXY targetLoc = ride->stations[current_ride_station].Start.ToTileCentre();
 
     if (ride->type == RIDE_TYPE_ENTERPRISE)
     {
@@ -4531,10 +4516,8 @@ void Guest::UpdateRideApproachExitWaypoints()
         }
 
         var_37--;
-        rct_vehicle* vehicle = GET_VEHICLE(ride->vehicles[current_train]);
-        CoordsXY targetLoc;
-        targetLoc.x = ride->stations[current_ride_station].Start.x * 32 + 16;
-        targetLoc.y = ride->stations[current_ride_station].Start.y * 32 + 16;
+        Vehicle* vehicle = GET_VEHICLE(ride->vehicles[current_train]);
+        CoordsXY targetLoc = ride->stations[current_ride_station].Start.ToTileCentre();
 
         if (ride->type == RIDE_TYPE_ENTERPRISE)
         {
@@ -4556,9 +4539,8 @@ void Guest::UpdateRideApproachExitWaypoints()
 
     var_37 |= 3;
 
-    auto exit = ride_get_exit_location(ride, current_ride_station);
-    CoordsXY targetLoc = { exit.x * 32 + 16, exit.y * 32 + 16 };
-    uint8_t exit_direction = direction_reverse(exit.direction);
+    auto targetLoc = ride_get_exit_location(ride, current_ride_station).ToCoordsXYZD().ToTileCentre();
+    uint8_t exit_direction = direction_reverse(targetLoc.direction);
 
     int16_t x_shift = DirectionOffsets[exit_direction].x;
     int16_t y_shift = DirectionOffsets[exit_direction].y;
@@ -4630,14 +4612,10 @@ void Guest::UpdateRideApproachSpiralSlide()
             auto exit = ride_get_exit_location(ride, current_ride_station);
             waypoint = 1;
             var_37 = (exit.direction * 4) | (var_37 & 0x30) | waypoint;
-            CoordsXY targetLoc;
-            targetLoc.x = ride->stations[current_ride_station].Start.x * 32;
-            targetLoc.y = ride->stations[current_ride_station].Start.y * 32;
+            CoordsXY targetLoc = ride->stations[current_ride_station].Start;
 
             assert(ride->type == RIDE_TYPE_SPIRAL_SLIDE);
-            const CoordsXY slidePlatformDestination = SpiralSlideWalkingPath[var_37];
-
-            targetLoc += slidePlatformDestination;
+            targetLoc += SpiralSlideWalkingPath[var_37];
 
             destination_x = targetLoc.x;
             destination_y = targetLoc.y;
@@ -4649,14 +4627,10 @@ void Guest::UpdateRideApproachSpiralSlide()
     // Actually increment the real peep waypoint
     var_37++;
 
-    CoordsXY targetLoc;
-    targetLoc.x = ride->stations[current_ride_station].Start.x * 32;
-    targetLoc.y = ride->stations[current_ride_station].Start.y * 32;
+    CoordsXY targetLoc = ride->stations[current_ride_station].Start;
 
     assert(ride->type == RIDE_TYPE_SPIRAL_SLIDE);
-    const CoordsXY slidePlatformDestination = SpiralSlideWalkingPath[var_37];
-
-    targetLoc += slidePlatformDestination;
+    targetLoc += SpiralSlideWalkingPath[var_37];
 
     destination_x = targetLoc.x;
     destination_y = targetLoc.y;
@@ -4711,19 +4685,18 @@ void Guest::UpdateRideOnSpiralSlide()
                 return;
             case 3:
             {
-                int16_t newX = ride->stations[current_ride_station].Start.x * 32;
-                int16_t newY = ride->stations[current_ride_station].Start.y * 32;
+                auto newLocation = ride->stations[current_ride_station].Start;
                 uint8_t dir = (var_37 / 4) & 3;
 
                 // Set the location that the peep walks to go on slide again
-                destination_x = newX + _SpiralSlideEndWaypoint[dir].x;
-                destination_y = newY + _SpiralSlideEndWaypoint[dir].y;
+                destination_x = newLocation.x + _SpiralSlideEndWaypoint[dir].x;
+                destination_y = newLocation.y + _SpiralSlideEndWaypoint[dir].y;
 
                 // Move the peep sprite to just at the end of the slide
-                newX += _SpiralSlideEnd[dir].x;
-                newY += _SpiralSlideEnd[dir].y;
+                newLocation.x += _SpiralSlideEnd[dir].x;
+                newLocation.y += _SpiralSlideEnd[dir].y;
 
-                MoveTo(newX, newY, z);
+                MoveTo(newLocation.x, newLocation.y, z);
 
                 sprite_direction = (var_37 & 0xC) * 2;
 
@@ -4744,14 +4717,10 @@ void Guest::UpdateRideOnSpiralSlide()
     uint8_t waypoint = 2;
     var_37 = (var_37 * 4 & 0x30) + waypoint;
 
-    CoordsXY targetLoc;
-    targetLoc.x = ride->stations[current_ride_station].Start.x * 32;
-    targetLoc.y = ride->stations[current_ride_station].Start.y * 32;
+    CoordsXY targetLoc = ride->stations[current_ride_station].Start;
 
     assert(ride->type == RIDE_TYPE_SPIRAL_SLIDE);
-    const CoordsXY slidePlatformDestination = SpiralSlideWalkingPath[var_37];
-
-    targetLoc += slidePlatformDestination;
+    targetLoc += SpiralSlideWalkingPath[var_37];
 
     destination_x = targetLoc.x;
     destination_y = targetLoc.y;
@@ -4789,14 +4758,10 @@ void Guest::UpdateRideLeaveSpiralSlide()
         waypoint--;
         // Actually decrement the peep waypoint
         var_37--;
-        CoordsXY targetLoc;
-        targetLoc.x = ride->stations[current_ride_station].Start.x * 32;
-        targetLoc.y = ride->stations[current_ride_station].Start.y * 32;
+        CoordsXY targetLoc = ride->stations[current_ride_station].Start;
 
         assert(ride->type == RIDE_TYPE_SPIRAL_SLIDE);
-        const CoordsXY slidePlatformDestination = SpiralSlideWalkingPath[var_37];
-
-        targetLoc += slidePlatformDestination;
+        targetLoc += SpiralSlideWalkingPath[var_37];
 
         destination_x = targetLoc.x;
         destination_y = targetLoc.y;
@@ -4806,11 +4771,10 @@ void Guest::UpdateRideLeaveSpiralSlide()
     // Actually force the final waypoint
     var_37 |= 3;
 
-    auto exit = ride_get_exit_location(ride, current_ride_station);
-    CoordsXY targetLoc{ exit.x * 32 + 16, exit.y * 32 + 16 };
+    auto targetLoc = ride_get_exit_location(ride, current_ride_station).ToCoordsXYZD().ToTileCentre();
 
-    int16_t xShift = DirectionOffsets[direction_reverse(exit.direction)].x;
-    int16_t yShift = DirectionOffsets[direction_reverse(exit.direction)].y;
+    int16_t xShift = DirectionOffsets[direction_reverse(targetLoc.direction)].x;
+    int16_t yShift = DirectionOffsets[direction_reverse(targetLoc.direction)].y;
 
     int16_t shiftMultiplier = 20;
 
@@ -5078,8 +5042,8 @@ void Guest::UpdateRideShopInteract()
     if (ride == nullptr)
         return;
 
-    const int16_t tileCenterX = next_x + 16;
-    const int16_t tileCenterY = next_y + 16;
+    const int16_t tileCenterX = NextLoc.x + 16;
+    const int16_t tileCenterY = NextLoc.y + 16;
     if (ride->type == RIDE_TYPE_FIRST_AID)
     {
         if (nausea <= 35)
@@ -5133,9 +5097,9 @@ void Guest::UpdateRideShopLeave()
     {
         MoveTo((*loc).x, (*loc).y, z);
 
-        if ((x & 0xFFE0) != next_x)
+        if ((x & 0xFFE0) != NextLoc.x)
             return;
-        if ((y & 0xFFE0) != next_y)
+        if ((y & 0xFFE0) != NextLoc.y)
             return;
     }
 
@@ -5389,7 +5353,7 @@ void Guest::UpdateWalking()
 
     // Check if vehicle is blocking the destination tile
     auto curPos = TileCoordsXYZ(CoordsXYZ{ x, y, z });
-    auto dstPos = TileCoordsXYZ(CoordsXY{ destination_x, destination_y }, next_z);
+    auto dstPos = TileCoordsXYZ(CoordsXYZ{ destination_x, destination_y, NextLoc.z });
     if (curPos.x != dstPos.x || curPos.y != dstPos.y)
     {
         if (footpath_is_blocked_by_vehicle(dstPos))
@@ -5406,14 +5370,13 @@ void Guest::UpdateWalking()
 
     if (GetNextIsSurface())
     {
-        auto surfaceElement = map_get_surface_element_at(CoordsXY{ next_x, next_y });
+        auto surfaceElement = map_get_surface_element_at(NextLoc);
 
         if (surfaceElement != nullptr)
         {
             int32_t water_height = surfaceElement->GetWaterHeight();
-            if (water_height)
+            if (water_height > 0)
             {
-                water_height *= 16;
                 MoveTo(x, y, water_height);
                 SetState(PEEP_STATE_FALLING);
                 return;
@@ -5456,7 +5419,7 @@ void Guest::UpdateWalking()
     if (GetNextIsSurface() || GetNextIsSloped())
         return;
 
-    TileElement* tileElement = map_get_first_element_at({ next_x, next_y });
+    TileElement* tileElement = map_get_first_element_at(NextLoc);
     if (tileElement == nullptr)
         return;
 
@@ -5464,7 +5427,7 @@ void Guest::UpdateWalking()
     {
         if (tileElement->GetType() == TILE_ELEMENT_TYPE_PATH)
         {
-            if (next_z == tileElement->base_height)
+            if (NextLoc.z == tileElement->GetBaseZ())
                 break;
         }
         if (tileElement->IsLastForTile())
@@ -5874,7 +5837,7 @@ void Guest::UpdateUsingBin()
                 return;
             }
 
-            TileElement* tileElement = map_get_first_element_at({ next_x, next_y });
+            TileElement* tileElement = map_get_first_element_at(NextLoc);
             if (tileElement == nullptr)
                 return;
 
@@ -5885,7 +5848,7 @@ void Guest::UpdateUsingBin()
                     continue;
                 }
 
-                if (tileElement->base_height == next_z)
+                if (tileElement->GetBaseZ() == NextLoc.z)
                     break;
 
                 if (tileElement->IsLastForTile())
@@ -5997,7 +5960,7 @@ void Guest::UpdateUsingBin()
             additionStatus |= space_left_in_bin << selected_bin;
             tileElement->AsPath()->SetAdditionStatus(additionStatus);
 
-            map_invalidate_tile_zoom0({ next_x, next_y, tileElement->GetBaseZ(), tileElement->GetClearanceZ() });
+            map_invalidate_tile_zoom0({ NextLoc, tileElement->GetBaseZ(), tileElement->GetClearanceZ() });
             StateReset();
             break;
         }
@@ -6044,7 +6007,7 @@ bool Guest::UpdateWalkingFindBench()
     if (!ShouldFindBench())
         return false;
 
-    TileElement* tileElement = map_get_first_element_at({ next_x, next_y });
+    TileElement* tileElement = map_get_first_element_at(NextLoc);
     if (tileElement == nullptr)
         return false;
 
@@ -6052,7 +6015,7 @@ bool Guest::UpdateWalkingFindBench()
     {
         if (tileElement->GetType() == TILE_ELEMENT_TYPE_PATH)
         {
-            if (next_z == tileElement->base_height)
+            if (NextLoc.z == tileElement->GetBaseZ())
                 break;
         }
         if (tileElement->IsLastForTile())
@@ -6141,7 +6104,7 @@ bool Guest::UpdateWalkingFindBin()
     if (peep->GetNextIsSurface())
         return false;
 
-    TileElement* tileElement = map_get_first_element_at({ peep->next_x, peep->next_y });
+    TileElement* tileElement = map_get_first_element_at(peep->NextLoc);
     if (tileElement == nullptr)
         return false;
 
@@ -6149,7 +6112,7 @@ bool Guest::UpdateWalkingFindBin()
     {
         if (tileElement->GetType() == TILE_ELEMENT_TYPE_PATH)
         {
-            if (peep->next_z == tileElement->base_height)
+            if (peep->NextLoc.z == tileElement->GetBaseZ())
                 break;
         }
         if (tileElement->IsLastForTile())
@@ -6244,7 +6207,7 @@ static void peep_update_walking_break_scenery(Peep* peep)
     if (peep->GetNextIsSurface())
         return;
 
-    TileElement* tileElement = map_get_first_element_at({ peep->next_x, peep->next_y });
+    TileElement* tileElement = map_get_first_element_at(peep->NextLoc);
     if (tileElement == nullptr)
         return;
 
@@ -6252,7 +6215,7 @@ static void peep_update_walking_break_scenery(Peep* peep)
     {
         if (tileElement->GetType() == TILE_ELEMENT_TYPE_PATH)
         {
-            if (peep->next_z == tileElement->base_height)
+            if (peep->NextLoc.z == tileElement->GetBaseZ())
                 break;
         }
         if (tileElement->IsLastForTile())
@@ -6314,7 +6277,7 @@ static void peep_update_walking_break_scenery(Peep* peep)
 
     tileElement->AsPath()->SetIsBroken(true);
 
-    map_invalidate_tile_zoom1({ peep->next_x, peep->next_y, tileElement->GetBaseZ(), tileElement->GetBaseZ() + 32 });
+    map_invalidate_tile_zoom1({ peep->NextLoc, tileElement->GetBaseZ(), tileElement->GetBaseZ() + 32 });
 
     peep->angriness = 16;
 }
@@ -6390,7 +6353,7 @@ bool loc_690FD0(Peep* peep, uint8_t* rideToView, uint8_t* rideSeatToView, TileEl
         *rideSeatToView = 1;
         if (ride->status != RIDE_STATUS_OPEN)
         {
-            if (tileElement->clearance_height > peep->next_z + 8)
+            if (tileElement->GetClearanceZ() > peep->NextLoc.z + (8 * COORDS_Z_STEP))
             {
                 *rideSeatToView |= (1 << 1);
             }
@@ -6403,7 +6366,7 @@ bool loc_690FD0(Peep* peep, uint8_t* rideToView, uint8_t* rideSeatToView, TileEl
         *rideSeatToView = 0;
         if (ride->status == RIDE_STATUS_OPEN && !(ride->lifecycle_flags & RIDE_LIFECYCLE_BROKEN_DOWN))
         {
-            if (tileElement->clearance_height > peep->next_z + 8)
+            if (tileElement->GetClearanceZ() > peep->NextLoc.z + (8 * COORDS_Z_STEP))
             {
                 *rideSeatToView = 0x02;
             }
@@ -6429,7 +6392,7 @@ static bool peep_find_ride_to_look_at(Peep* peep, uint8_t edge, uint8_t* rideToV
 {
     TileElement* tileElement;
 
-    auto surfaceElement = map_get_surface_element_at(CoordsXY{ peep->next_x, peep->next_y });
+    auto surfaceElement = map_get_surface_element_at(peep->NextLoc);
 
     tileElement = reinterpret_cast<TileElement*>(surfaceElement);
     if (tileElement == nullptr)
@@ -6453,17 +6416,17 @@ static bool peep_find_ride_to_look_at(Peep* peep, uint8_t edge, uint8_t* rideToV
         auto wallEntry = tileElement->AsWall()->GetEntry();
         if (wallEntry == nullptr || (wallEntry->wall.flags2 & WALL_SCENERY_2_IS_OPAQUE))
             continue;
-        if (peep->next_z + 4 <= tileElement->base_height)
+        if (peep->NextLoc.z + (4 * COORDS_Z_STEP) <= tileElement->GetBaseZ())
             continue;
-        if (peep->next_z + 1 >= tileElement->clearance_height)
+        if (peep->NextLoc.z + (1 * COORDS_Z_STEP) >= tileElement->GetClearanceZ())
             continue;
 
         return false;
     } while (!(tileElement++)->IsLastForTile());
 
-    uint16_t x = peep->next_x + CoordsDirectionDelta[edge].x;
-    uint16_t y = peep->next_y + CoordsDirectionDelta[edge].y;
-    if (x > 255 * 32 || y > 255 * 32)
+    uint16_t x = peep->NextLoc.x + CoordsDirectionDelta[edge].x;
+    uint16_t y = peep->NextLoc.y + CoordsDirectionDelta[edge].y;
+    if (!map_is_location_valid({ x, y }))
     {
         return false;
     }
@@ -6493,9 +6456,9 @@ static bool peep_find_ride_to_look_at(Peep* peep, uint8_t edge, uint8_t* rideToV
         if (wallEntry == nullptr || (wallEntry->wall.flags2 & WALL_SCENERY_2_IS_OPAQUE))
             continue;
         // TODO: Check whether this shouldn't be <=, as the other loops use. If so, also extract as loop A.
-        if (peep->next_z + 4 >= tileElement->base_height)
+        if (peep->NextLoc.z + (4 * COORDS_Z_STEP) >= tileElement->GetBaseZ())
             continue;
-        if (peep->next_z + 1 >= tileElement->clearance_height)
+        if (peep->NextLoc.z + (1 * COORDS_Z_STEP) >= tileElement->GetClearanceZ())
             continue;
 
         return false;
@@ -6513,9 +6476,9 @@ static bool peep_find_ride_to_look_at(Peep* peep, uint8_t edge, uint8_t* rideToV
                 continue;
         }
 
-        if (tileElement->clearance_height + 1 < peep->next_z)
+        if (tileElement->GetClearanceZ() + (1 * COORDS_Z_STEP) < peep->NextLoc.z)
             continue;
-        if (peep->next_z + 6 < tileElement->base_height)
+        if (peep->NextLoc.z + (6 * COORDS_Z_STEP) < tileElement->GetBaseZ())
             continue;
 
         if (tileElement->GetType() == TILE_ELEMENT_TYPE_TRACK)
@@ -6534,7 +6497,7 @@ static bool peep_find_ride_to_look_at(Peep* peep, uint8_t edge, uint8_t* rideToV
             }
 
             *rideSeatToView = 0;
-            if (tileElement->clearance_height >= peep->next_z + 8)
+            if (tileElement->GetClearanceZ() >= peep->NextLoc.z + (8 * COORDS_Z_STEP))
             {
                 *rideSeatToView = 0x02;
             }
@@ -6556,9 +6519,9 @@ static bool peep_find_ride_to_look_at(Peep* peep, uint8_t edge, uint8_t* rideToV
             if (tileElement->IsGhost())
                 continue;
         }
-        if (tileElement->clearance_height + 1 < peep->next_z)
+        if (tileElement->GetClearanceZ() + (1 * COORDS_Z_STEP) < peep->NextLoc.z)
             continue;
-        if (peep->next_z + 6 < tileElement->base_height)
+        if (peep->NextLoc.z + (6 * COORDS_Z_STEP) < tileElement->GetBaseZ())
             continue;
         if (tileElement->GetType() == TILE_ELEMENT_TYPE_SURFACE)
             continue;
@@ -6579,7 +6542,7 @@ static bool peep_find_ride_to_look_at(Peep* peep, uint8_t edge, uint8_t* rideToV
 
     x += CoordsDirectionDelta[edge].x;
     y += CoordsDirectionDelta[edge].y;
-    if (x > 255 * 32 || y > 255 * 32)
+    if (!map_is_location_valid({ x, y }))
     {
         return false;
     }
@@ -6610,9 +6573,9 @@ static bool peep_find_ride_to_look_at(Peep* peep, uint8_t edge, uint8_t* rideToV
         auto wallEntry = tileElement->AsWall()->GetEntry();
         if (wallEntry == nullptr || (wallEntry->wall.flags2 & WALL_SCENERY_2_IS_OPAQUE))
             continue;
-        if (peep->next_z + 6 <= tileElement->base_height)
+        if (peep->NextLoc.z + (6 * COORDS_Z_STEP) <= tileElement->GetBaseZ())
             continue;
-        if (peep->next_z >= tileElement->clearance_height)
+        if (peep->NextLoc.z >= tileElement->GetClearanceZ())
             continue;
 
         return false;
@@ -6629,9 +6592,9 @@ static bool peep_find_ride_to_look_at(Peep* peep, uint8_t edge, uint8_t* rideToV
             if (tileElement->IsGhost())
                 continue;
         }
-        if (tileElement->clearance_height + 1 < peep->next_z)
+        if (tileElement->GetClearanceZ() + (1 * COORDS_Z_STEP) < peep->NextLoc.z)
             continue;
-        if (peep->next_z + 8 < tileElement->base_height)
+        if (peep->NextLoc.z + (8 * COORDS_Z_STEP) < tileElement->GetBaseZ())
             continue;
 
         if (tileElement->GetType() == TILE_ELEMENT_TYPE_TRACK)
@@ -6651,7 +6614,7 @@ static bool peep_find_ride_to_look_at(Peep* peep, uint8_t edge, uint8_t* rideToV
             }
 
             *rideSeatToView = 0;
-            if (tileElement->clearance_height >= peep->next_z + 8)
+            if (tileElement->GetClearanceZ() >= peep->NextLoc.z + (8 * COORDS_Z_STEP))
             {
                 *rideSeatToView = 0x02;
             }
@@ -6673,9 +6636,9 @@ static bool peep_find_ride_to_look_at(Peep* peep, uint8_t edge, uint8_t* rideToV
             if (tileElement->IsGhost())
                 continue;
         }
-        if (tileElement->clearance_height + 1 < peep->next_z)
+        if (tileElement->GetClearanceZ() + (1 * COORDS_Z_STEP) < peep->NextLoc.z)
             continue;
-        if (peep->next_z + 8 < tileElement->base_height)
+        if (peep->NextLoc.z + (8 * COORDS_Z_STEP) < tileElement->GetBaseZ())
             continue;
         if (tileElement->GetType() == TILE_ELEMENT_TYPE_SURFACE)
             continue;
@@ -6696,7 +6659,7 @@ static bool peep_find_ride_to_look_at(Peep* peep, uint8_t edge, uint8_t* rideToV
 
     x += CoordsDirectionDelta[edge].x;
     y += CoordsDirectionDelta[edge].y;
-    if (x > 255 * 32 || y > 255 * 32)
+    if (!map_is_location_valid({ x, y }))
     {
         return false;
     }
@@ -6726,9 +6689,9 @@ static bool peep_find_ride_to_look_at(Peep* peep, uint8_t edge, uint8_t* rideToV
         auto wallEntry = tileElement->AsWall()->GetEntry();
         if (wallEntry == nullptr || (wallEntry->wall.flags2 & WALL_SCENERY_2_IS_OPAQUE))
             continue;
-        if (peep->next_z + 8 <= tileElement->base_height)
+        if (peep->NextLoc.z + (8 * COORDS_Z_STEP) <= tileElement->GetBaseZ())
             continue;
-        if (peep->next_z >= tileElement->clearance_height)
+        if (peep->NextLoc.z >= tileElement->GetClearanceZ())
             continue;
 
         return false;
@@ -6745,9 +6708,9 @@ static bool peep_find_ride_to_look_at(Peep* peep, uint8_t edge, uint8_t* rideToV
             if (tileElement->IsGhost())
                 continue;
         }
-        if (tileElement->clearance_height + 1 < peep->next_z)
+        if (tileElement->GetClearanceZ() + (1 * COORDS_Z_STEP) < peep->NextLoc.z)
             continue;
-        if (peep->next_z + 10 < tileElement->base_height)
+        if (peep->NextLoc.z + (10 * COORDS_Z_STEP) < tileElement->GetBaseZ())
             continue;
 
         if (tileElement->GetType() == TILE_ELEMENT_TYPE_TRACK)
@@ -6766,7 +6729,7 @@ static bool peep_find_ride_to_look_at(Peep* peep, uint8_t edge, uint8_t* rideToV
             }
 
             *rideSeatToView = 0;
-            if (tileElement->clearance_height >= peep->next_z + 8)
+            if (tileElement->GetClearanceZ() >= peep->NextLoc.z + (8 * COORDS_Z_STEP))
             {
                 *rideSeatToView = 0x02;
             }
@@ -6885,9 +6848,10 @@ void Guest::UpdateSpriteType()
 
     if (climate_is_raining() && (item_standard_flags & PEEP_ITEM_UMBRELLA) && x != LOCATION_NULL)
     {
-        if ((x & 0xFFE0) < 0x1FFF && (y & 0xFFE0) < 0x1FFF)
+        CoordsXY loc = { x, y };
+        if (map_is_location_valid(loc.ToTileStart()))
         {
-            TileElement* tileElement = map_get_first_element_at({ x, y });
+            TileElement* tileElement = map_get_first_element_at(loc);
             while (true)
             {
                 if (tileElement == nullptr)

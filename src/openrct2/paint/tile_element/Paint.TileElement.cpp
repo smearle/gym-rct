@@ -67,7 +67,7 @@ void tile_element_paint_setup(paint_session* session, int32_t x, int32_t y)
  *
  *  rct2: 0x0068B2B7
  */
-void sub_68B2B7(paint_session* session, CoordsXY mapCoords)
+void sub_68B2B7(paint_session* session, const CoordsXY& mapCoords)
 {
     if (mapCoords.x < gMapSizeUnits && mapCoords.y < gMapSizeUnits && mapCoords.x >= 32 && mapCoords.y >= 32)
     {
@@ -140,9 +140,9 @@ static void sub_68B3FB(paint_session* session, int32_t x, int32_t y)
 
     if ((session->ViewFlags & VIEWPORT_FLAG_CLIP_VIEW))
     {
-        if (x / 32 < gClipSelectionA.x || x / 32 > gClipSelectionB.x)
+        if (x < gClipSelectionA.x || x > gClipSelectionB.x)
             return;
-        if (y / 32 < gClipSelectionA.y || y / 32 > gClipSelectionB.y)
+        if (y < gClipSelectionA.y || y > gClipSelectionB.y)
             return;
     }
 
@@ -154,7 +154,7 @@ static void sub_68B3FB(paint_session* session, int32_t x, int32_t y)
     session->MapPosition.x = x;
     session->MapPosition.y = y;
 
-    TileElement* tile_element = map_get_first_element_at({ x, y });
+    TileElement* tile_element = map_get_first_element_at(session->MapPosition);
     if (tile_element == nullptr)
         return;
     uint8_t rotation = session->CurrentRotation;
@@ -163,7 +163,7 @@ static void sub_68B3FB(paint_session* session, int32_t x, int32_t y)
 #ifndef __TESTPAINT__
     if (gConfigGeneral.virtual_floor_style != VIRTUAL_FLOOR_STYLE_OFF)
     {
-        partOfVirtualFloor = virtual_floor_tile_is_floor(session->MapPosition.x, session->MapPosition.y);
+        partOfVirtualFloor = virtual_floor_tile_is_floor(session->MapPosition);
     }
 #endif // __TESTPAINT__
 
@@ -213,17 +213,15 @@ static void sub_68B3FB(paint_session* session, int32_t x, int32_t y)
     uint16_t max_height = 0;
     do
     {
-        max_height = std::max(max_height, (uint16_t)element->clearance_height);
+        max_height = std::max(max_height, (uint16_t)element->GetClearanceZ());
     } while (!(element++)->IsLastForTile());
 
     element--;
 
     if (element->GetType() == TILE_ELEMENT_TYPE_SURFACE && (element->AsSurface()->GetWaterHeight() > 0))
     {
-        max_height = element->AsSurface()->GetWaterHeight() * 2;
+        max_height = element->AsSurface()->GetWaterHeight();
     }
-
-    max_height *= 8;
 
 #ifndef __TESTPAINT__
     if (partOfVirtualFloor)
@@ -247,7 +245,7 @@ static void sub_68B3FB(paint_session* session, int32_t x, int32_t y)
     do
     {
         // Only paint tile_elements below the clip height.
-        if ((session->ViewFlags & VIEWPORT_FLAG_CLIP_VIEW) && (tile_element->base_height > gClipHeight))
+        if ((session->ViewFlags & VIEWPORT_FLAG_CLIP_VIEW) && (tile_element->GetBaseZ() > gClipHeight * COORDS_Z_STEP))
             continue;
 
         Direction direction = tile_element->GetDirectionWithOffset(rotation);

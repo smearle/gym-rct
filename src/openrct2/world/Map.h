@@ -29,19 +29,20 @@
 constexpr const int32_t MAXIMUM_MAP_SIZE_BIG = COORDS_XY_STEP * MAXIMUM_MAP_SIZE_TECHNICAL;
 constexpr const int32_t MAXIMUM_TILE_START_XY = MAXIMUM_MAP_SIZE_BIG - COORDS_XY_STEP;
 constexpr const int32_t LAND_HEIGHT_STEP = 2 * COORDS_Z_STEP;
+constexpr const int32_t MINIMUM_LAND_HEIGHT_BIG = MINIMUM_LAND_HEIGHT * COORDS_Z_STEP;
 
 #define MAP_MINIMUM_X_Y (-MAXIMUM_MAP_SIZE_TECHNICAL)
 
 #define MAX_TILE_ELEMENTS 196096 // 0x30000
 #define MAX_TILE_TILE_ELEMENT_POINTERS (MAXIMUM_MAP_SIZE_TECHNICAL * MAXIMUM_MAP_SIZE_TECHNICAL)
-#define MAX_PEEP_SPAWNS 8
+#define MAX_PEEP_SPAWNS 2
 #define PEEP_SPAWN_UNDEFINED 0xFFFF
 
 #define TILE_ELEMENT_LARGE_TYPE_MASK 0x3FF
 
 #define TILE_UNDEFINED_TILE_ELEMENT NULL
 
-typedef CoordsXYZD PeepSpawn;
+using PeepSpawn = CoordsXYZD;
 
 struct CoordsXYE : public CoordsXY
 {
@@ -52,7 +53,7 @@ struct CoordsXYE : public CoordsXY
     {
     }
 
-    constexpr CoordsXYE(CoordsXY c, TileElement* _e)
+    constexpr CoordsXYE(const CoordsXY& c, TileElement* _e)
         : CoordsXY(c)
         , element(_e)
     {
@@ -96,7 +97,7 @@ enum
     CREATE_CROSSING_MODE_PATH_OVER_TRACK,
 };
 
-extern const CoordsXY CoordsDirectionDelta[];
+extern const std::array<CoordsXY, 8> CoordsDirectionDelta;
 extern const TileCoordsXY TileDirectionDelta[];
 
 extern uint16_t gWidePathTileLoopX;
@@ -153,12 +154,12 @@ void map_update_tile_pointers();
 TileElement* map_get_first_element_at(const CoordsXY& elementPos);
 TileElement* map_get_nth_element_at(const CoordsXY& coords, int32_t n);
 void map_set_tile_element(const TileCoordsXY& tilePos, TileElement* elements);
-int32_t map_height_from_slope(const CoordsXY& coords, int32_t slope, bool isSloped);
+int32_t map_height_from_slope(const CoordsXY& coords, int32_t slopeDirection, bool isSloped);
 BannerElement* map_get_banner_element_at(const CoordsXYZ& bannerPos, uint8_t direction);
 SurfaceElement* map_get_surface_element_at(const CoordsXY& coords);
 PathElement* map_get_path_element_at(const TileCoordsXYZ& loc);
-WallElement* map_get_wall_element_at(CoordsXYZD wallCoords);
-SmallSceneryElement* map_get_small_scenery_element_at(CoordsXYZ sceneryCoords, int32_t type, uint8_t quadrant);
+WallElement* map_get_wall_element_at(const CoordsXYZD& wallCoords);
+SmallSceneryElement* map_get_small_scenery_element_at(const CoordsXYZ& sceneryCoords, int32_t type, uint8_t quadrant);
 EntranceElement* map_get_park_entrance_element_at(const CoordsXYZ& entranceCoords, bool ghost);
 EntranceElement* map_get_ride_entrance_element_at(const CoordsXYZ& entranceCoords, bool ghost);
 EntranceElement* map_get_ride_exit_element_at(const CoordsXYZ& exitCoords, bool ghost);
@@ -176,14 +177,14 @@ bool map_can_build_at(const CoordsXYZ& loc);
 bool map_is_location_owned(const CoordsXYZ& loc);
 bool map_is_location_in_park(const CoordsXY& coords);
 bool map_is_location_owned_or_has_rights(const CoordsXY& loc);
-bool map_surface_is_blocked(CoordsXY mapCoords);
+bool map_surface_is_blocked(const CoordsXY& mapCoords);
 void tile_element_remove(TileElement* tileElement);
 void map_remove_all_rides();
 void map_invalidate_map_selection_tiles();
 void map_invalidate_selection_rect();
 void map_reorganise_elements();
 bool map_check_free_elements_and_reorganise(int32_t num_elements);
-TileElement* tile_element_insert(const TileCoordsXYZ& loc, int32_t occupiedQuadrants);
+TileElement* tile_element_insert(const CoordsXYZ& loc, int32_t occupiedQuadrants);
 
 using CLEAR_FUNC = int32_t (*)(TileElement** tile_element, const CoordsXY& coords, uint8_t flags, money32* price);
 
@@ -211,7 +212,7 @@ void tile_element_iterator_restart_for_tile(tile_element_iterator* it);
 void map_update_tiles();
 int32_t map_get_highest_z(const CoordsXY& loc);
 
-bool tile_element_wants_path_connection_towards(TileCoordsXYZD coords, const TileElement* const elementToBeRemoved);
+bool tile_element_wants_path_connection_towards(const TileCoordsXYZD& coords, const TileElement* const elementToBeRemoved);
 
 void map_remove_out_of_range_elements();
 void map_extend_boundary_surface();
@@ -244,14 +245,15 @@ ScreenCoordsXY translate_3d_to_2d_with_z(int32_t rotation, const CoordsXYZ& pos)
 TrackElement* map_get_track_element_at(const CoordsXYZ& trackPos);
 TileElement* map_get_track_element_at_of_type(const CoordsXYZ& trackPos, int32_t trackType);
 TileElement* map_get_track_element_at_of_type_seq(const CoordsXYZ& trackPos, int32_t trackType, int32_t sequence);
-TrackElement* map_get_track_element_at_of_type(CoordsXYZD location, int32_t trackType);
-TrackElement* map_get_track_element_at_of_type_seq(CoordsXYZD location, int32_t trackType, int32_t sequence);
+TrackElement* map_get_track_element_at_of_type(const CoordsXYZD& location, int32_t trackType);
+TrackElement* map_get_track_element_at_of_type_seq(const CoordsXYZD& location, int32_t trackType, int32_t sequence);
 TileElement* map_get_track_element_at_of_type_from_ride(const CoordsXYZ& trackPos, int32_t trackType, ride_id_t rideIndex);
 TileElement* map_get_track_element_at_from_ride(const CoordsXYZ& trackPos, ride_id_t rideIndex);
 TileElement* map_get_track_element_at_with_direction_from_ride(const CoordsXYZD& trackPos, ride_id_t rideIndex);
 
 bool map_is_location_at_edge(const CoordsXY& loc);
-void map_obstruction_set_error_text(TileElement* tileElement);
+class GameActionResult;
+void map_obstruction_set_error_text(TileElement* tileElement, GameActionResult& res);
 
 uint16_t check_max_allowable_land_rights_for_tile(const CoordsXYZ& tileMapPos);
 

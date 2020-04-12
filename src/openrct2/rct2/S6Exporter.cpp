@@ -34,6 +34,7 @@
 #include "../peep/Staff.h"
 #include "../rct12/SawyerChunkWriter.h"
 #include "../ride/Ride.h"
+#include "../ride/RideData.h"
 #include "../ride/RideRatings.h"
 #include "../ride/ShopItem.h"
 #include "../ride/Station.h"
@@ -50,6 +51,7 @@
 #include <cstring>
 #include <functional>
 #include <iterator>
+#include <optional>
 
 S6Exporter::S6Exporter()
 {
@@ -171,7 +173,7 @@ void S6Exporter::Export()
     uint32_t researchedTrackPiecesA[128] = {};
     uint32_t researchedTrackPiecesB[128] = {};
 
-    for (int32_t i = 0; i < OBJECT_ENTRY_COUNT; i++)
+    for (int32_t i = 0; i < RCT2_OBJECT_ENTRY_COUNT; i++)
     {
         const rct_object_entry* entry = get_loaded_object_entry(i);
         void* entryData = get_loaded_object_chunk(i);
@@ -213,10 +215,10 @@ void S6Exporter::Export()
     ExportResearchedRideTypes();
     ExportResearchedRideEntries();
     // Not used by OpenRCT2 any more, but left in to keep RCT2 export working.
-    for (uint8_t i = 0; i < std::size(RideTypePossibleTrackConfigurations); i++)
+    for (uint8_t i = 0; i < std::size(RideTypeDescriptors); i++)
     {
-        researchedTrackPiecesA[i] = (RideTypePossibleTrackConfigurations[i]) & 0xFFFFFFFFULL;
-        researchedTrackPiecesB[i] = (RideTypePossibleTrackConfigurations[i] >> 32ULL) & 0xFFFFFFFFULL;
+        researchedTrackPiecesA[i] = (RideTypeDescriptors[i].EnabledTrackPieces) & 0xFFFFFFFFULL;
+        researchedTrackPiecesB[i] = (RideTypeDescriptors[i].EnabledTrackPieces >> 32ULL) & 0xFFFFFFFFULL;
     }
     std::memcpy(_s6.researched_track_types_a, researchedTrackPiecesA, sizeof(_s6.researched_track_types_a));
     std::memcpy(_s6.researched_track_types_b, researchedTrackPiecesB, sizeof(_s6.researched_track_types_b));
@@ -241,11 +243,24 @@ void S6Exporter::Export()
 
     _s6.active_research_types = gResearchPriorities;
     _s6.research_progress_stage = gResearchProgressStage;
-    _s6.last_researched_item_subject = gResearchLastItem.rawValue;
+    if (gResearchLastItem.has_value())
+        _s6.last_researched_item_subject = gResearchLastItem->rawValue;
+    else
+        _s6.last_researched_item_subject = RCT12_RESEARCHED_ITEMS_SEPARATOR;
     // pad_01357CF8
-    _s6.next_research_item = gResearchNextItem.rawValue;
     _s6.research_progress = gResearchProgress;
-    _s6.next_research_category = gResearchNextItem.category;
+
+    if (gResearchNextItem.has_value())
+    {
+        _s6.next_research_item = gResearchNextItem->rawValue;
+        _s6.next_research_category = gResearchNextItem->category;
+    }
+    else
+    {
+        _s6.next_research_item = RCT12_RESEARCHED_ITEMS_SEPARATOR;
+        _s6.next_research_category = 0;
+    }
+
     _s6.next_research_expected_day = gResearchExpectedDay;
     _s6.next_research_expected_month = gResearchExpectedMonth;
     _s6.guest_initial_happiness = gGuestInitialHappiness;
@@ -346,9 +361,9 @@ void S6Exporter::Export()
     this->ExportRides();
 
     _s6.saved_age = gSavedAge;
-    _s6.saved_view_x = gSavedViewX;
-    _s6.saved_view_y = gSavedViewY;
-    _s6.saved_view_zoom = gSavedViewZoom;
+    _s6.saved_view_x = gSavedView.x;
+    _s6.saved_view_y = gSavedView.y;
+    _s6.saved_view_zoom = static_cast<int8_t>(std::clamp<ZoomLevel>(gSavedViewZoom, 0, 3));
     _s6.saved_view_rotation = gSavedViewRotation;
 
     ExportMapAnimations();
@@ -444,7 +459,7 @@ void S6Exporter::ExportParkName()
 {
     auto& park = OpenRCT2::GetContext()->GetGameState()->GetPark();
     auto stringId = AllocateUserString(park.Name);
-    if (stringId != opt::nullopt)
+    if (stringId != std::nullopt)
     {
         _s6.park_name = *stringId;
         _s6.park_name_args = 0;
@@ -504,7 +519,7 @@ void S6Exporter::ExportRide(rct2_ride* dst, const Ride* src)
     {
         // Custom name, allocate user string for ride
         auto stringId = AllocateUserString(src->custom_name);
-        if (stringId != opt::nullopt)
+        if (stringId != std::nullopt)
         {
             dst->name = *stringId;
             dst->name_arguments = 0;
@@ -528,7 +543,8 @@ void S6Exporter::ExportRide(rct2_ride* dst, const Ride* src)
     }
     else
     {
-        dst->overall_view = { static_cast<uint8_t>(src->overall_view.x), static_cast<uint8_t>(src->overall_view.y) };
+        auto tileLoc = TileCoordsXY(src->overall_view);
+        dst->overall_view = { static_cast<uint8_t>(tileLoc.x), static_cast<uint8_t>(tileLoc.y) };
     }
 
     for (int32_t i = 0; i < RCT12_MAX_STATIONS_PER_RIDE; i++)
@@ -539,8 +555,8 @@ void S6Exporter::ExportRide(rct2_ride* dst, const Ride* src)
         }
         else
         {
-            dst->station_starts[i] = { static_cast<uint8_t>(src->stations[i].Start.x),
-                                       static_cast<uint8_t>(src->stations[i].Start.y) };
+            auto tileStartLoc = TileCoordsXY(src->stations[i].Start);
+            dst->station_starts[i] = { static_cast<uint8_t>(tileStartLoc.x), static_cast<uint8_t>(tileStartLoc.y) };
         }
         dst->station_heights[i] = src->stations[i].Height;
         dst->station_length[i] = src->stations[i].Length;
@@ -743,7 +759,7 @@ void S6Exporter::ExportRide(rct2_ride* dst, const Ride* src)
     dst->num_circuits = src->num_circuits;
     dst->cable_lift_x = static_cast<int16_t>(src->CableLiftLoc.x);
     dst->cable_lift_y = static_cast<int16_t>(src->CableLiftLoc.y);
-    dst->cable_lift_z = static_cast<int16_t>(src->CableLiftLoc.z);
+    dst->cable_lift_z = static_cast<int16_t>(src->CableLiftLoc.z / COORDS_Z_STEP);
     // pad_1FD;
     dst->cable_lift = src->cable_lift;
 
@@ -864,7 +880,14 @@ void S6Exporter::ExportResearchedSceneryItems()
 
     for (uint16_t sceneryEntryIndex = 0; sceneryEntryIndex < RCT2_MAX_RESEARCHED_SCENERY_ITEMS; sceneryEntryIndex++)
     {
-        if (scenery_is_invented(sceneryEntryIndex))
+        ScenerySelection scenerySelection = { static_cast<uint8_t>((sceneryEntryIndex >> 8) & 0xFF),
+                                              static_cast<uint16_t>(sceneryEntryIndex & 0xFF) };
+
+        // SV6 allows for more scenery types than there are. Avoid triggering an assertion in scenery_is_invented().
+        if (scenerySelection.SceneryType >= SCENERY_TYPE_COUNT)
+            break;
+
+        if (scenery_is_invented(scenerySelection))
         {
             int32_t quadIndex = sceneryEntryIndex >> 5;
             int32_t bitIndex = sceneryEntryIndex & 0x1F;
@@ -955,7 +978,7 @@ void S6Exporter::ExportSprite(RCT2Sprite* dst, const rct_sprite* src)
     }
 }
 
-void S6Exporter::ExportSpriteCommonProperties(RCT12SpriteBase* dst, const rct_sprite_common* src)
+void S6Exporter::ExportSpriteCommonProperties(RCT12SpriteBase* dst, const SpriteBase* src)
 {
     dst->sprite_identifier = src->sprite_identifier;
     dst->type = src->type;
@@ -978,9 +1001,11 @@ void S6Exporter::ExportSpriteCommonProperties(RCT12SpriteBase* dst, const rct_sp
     dst->sprite_direction = src->sprite_direction;
 }
 
-void S6Exporter::ExportSpriteVehicle(RCT2SpriteVehicle* dst, const rct_vehicle* src)
+void S6Exporter::ExportSpriteVehicle(RCT2SpriteVehicle* dst, const Vehicle* src)
 {
-    ExportSpriteCommonProperties(dst, (const rct_sprite_common*)src);
+    const auto* ride = get_ride(src->ride);
+
+    ExportSpriteCommonProperties(dst, (const SpriteBase*)src);
     dst->vehicle_sprite_type = src->vehicle_sprite_type;
     dst->bank_rotation = src->bank_rotation;
     dst->remaining_distance = src->remaining_distance;
@@ -990,11 +1015,26 @@ void S6Exporter::ExportSpriteVehicle(RCT2SpriteVehicle* dst, const rct_vehicle* 
     dst->vehicle_type = src->vehicle_type;
     dst->colours = src->colours;
     dst->track_progress = src->track_progress;
-    dst->track_direction = src->track_direction;
+    if (ride != nullptr && ride->mode == RIDE_MODE_BOAT_HIRE)
+    {
+        if (src->BoatLocation.isNull())
+        {
+            dst->boat_location.setNull();
+        }
+        else
+        {
+            dst->boat_location = { static_cast<uint8_t>(src->BoatLocation.x / COORDS_XY_STEP),
+                                   static_cast<uint8_t>(src->BoatLocation.y / COORDS_XY_STEP) };
+        }
+    }
+    else
+    {
+        dst->track_direction = src->track_direction;
+    }
     dst->track_type = src->track_type;
-    dst->track_x = src->track_x;
-    dst->track_y = src->track_y;
-    dst->track_z = src->track_z;
+    dst->track_x = src->TrackLocation.x;
+    dst->track_y = src->TrackLocation.y;
+    dst->track_z = src->TrackLocation.z;
     dst->next_vehicle_on_train = src->next_vehicle_on_train;
     dst->prev_vehicle_on_ride = src->prev_vehicle_on_ride;
     dst->next_vehicle_on_ride = src->next_vehicle_on_ride;
@@ -1032,7 +1072,7 @@ void S6Exporter::ExportSpriteVehicle(RCT2SpriteVehicle* dst, const rct_vehicle* 
     dst->var_C8 = src->var_C8;
     dst->var_CA = src->var_CA;
     dst->scream_sound_id = static_cast<uint8_t>(src->scream_sound_id);
-    dst->var_CD = src->var_CD;
+    dst->TrackSubposition = src->TrackSubposition;
     dst->var_CE = src->var_CE;
     dst->var_CF = src->var_CF;
     dst->lost_time_out = src->lost_time_out;
@@ -1048,13 +1088,13 @@ void S6Exporter::ExportSpriteVehicle(RCT2SpriteVehicle* dst, const rct_vehicle* 
 
 void S6Exporter::ExportSpritePeep(RCT2SpritePeep* dst, const Peep* src)
 {
-    ExportSpriteCommonProperties(dst, (const rct_sprite_common*)src);
+    ExportSpriteCommonProperties(dst, (const SpriteBase*)src);
 
     auto generateName = true;
     if (src->name != nullptr)
     {
         auto stringId = AllocateUserString(src->name);
-        if (stringId != opt::nullopt)
+        if (stringId != std::nullopt)
         {
             dst->name_string_idx = *stringId;
             generateName = false;
@@ -1087,9 +1127,9 @@ void S6Exporter::ExportSpritePeep(RCT2SpritePeep* dst, const Peep* src)
         }
     }
 
-    dst->next_x = src->next_x;
-    dst->next_y = src->next_y;
-    dst->next_z = src->next_z;
+    dst->next_x = src->NextLoc.x;
+    dst->next_y = src->NextLoc.y;
+    dst->next_z = src->NextLoc.z / COORDS_Z_STEP;
     dst->next_flags = src->next_flags;
     dst->outside_of_park = src->outside_of_park;
     dst->state = (uint8_t)src->state;
@@ -1197,14 +1237,14 @@ void S6Exporter::ExportSpritePeep(RCT2SpritePeep* dst, const Peep* src)
     dst->item_standard_flags = src->item_standard_flags;
 }
 
-void S6Exporter::ExportSpriteMisc(RCT12SpriteBase* cdst, const rct_sprite_common* csrc)
+void S6Exporter::ExportSpriteMisc(RCT12SpriteBase* cdst, const SpriteBase* csrc)
 {
     ExportSpriteCommonProperties(cdst, csrc);
     switch (cdst->type)
     {
         case SPRITE_MISC_STEAM_PARTICLE:
         {
-            auto src = (const rct_steam_particle*)csrc;
+            auto src = (const SteamParticle*)csrc;
             auto dst = (RCT12SpriteSteamParticle*)cdst;
             dst->time_to_move = src->time_to_move;
             dst->frame = src->frame;
@@ -1212,7 +1252,7 @@ void S6Exporter::ExportSpriteMisc(RCT12SpriteBase* cdst, const rct_sprite_common
         }
         case SPRITE_MISC_MONEY_EFFECT:
         {
-            auto src = (const rct_money_effect*)csrc;
+            auto src = (const MoneyEffect*)csrc;
             auto dst = (RCT12SpriteMoneyEffect*)cdst;
             dst->move_delay = src->move_delay;
             dst->num_movements = src->num_movements;
@@ -1224,7 +1264,7 @@ void S6Exporter::ExportSpriteMisc(RCT12SpriteBase* cdst, const rct_sprite_common
         }
         case SPRITE_MISC_CRASHED_VEHICLE_PARTICLE:
         {
-            auto src = (const rct_crashed_vehicle_particle*)csrc;
+            auto src = (const VehicleCrashParticle*)csrc;
             auto dst = (RCT12SpriteCrashedVehicleParticle*)cdst;
             dst->frame = src->frame;
             dst->time_to_live = src->time_to_live;
@@ -1244,8 +1284,8 @@ void S6Exporter::ExportSpriteMisc(RCT12SpriteBase* cdst, const rct_sprite_common
         case SPRITE_MISC_EXPLOSION_FLARE:
         case SPRITE_MISC_CRASH_SPLASH:
         {
-            auto src = (const RCT12SpriteParticle*)csrc;
-            auto dst = (rct_sprite_generic*)cdst;
+            auto src = (const SpriteGeneric*)csrc;
+            auto dst = (RCT12SpriteParticle*)cdst;
             dst->frame = src->frame;
             break;
         }
@@ -1265,7 +1305,7 @@ void S6Exporter::ExportSpriteMisc(RCT12SpriteBase* cdst, const rct_sprite_common
         }
         case SPRITE_MISC_BALLOON:
         {
-            auto src = (const rct_balloon*)csrc;
+            auto src = (const Balloon*)csrc;
             auto dst = (RCT12SpriteBalloon*)cdst;
             dst->popped = src->popped;
             dst->time_to_move = src->time_to_move;
@@ -1275,7 +1315,7 @@ void S6Exporter::ExportSpriteMisc(RCT12SpriteBase* cdst, const rct_sprite_common
         }
         case SPRITE_MISC_DUCK:
         {
-            auto src = (const rct_duck*)csrc;
+            auto src = (const Duck*)csrc;
             auto dst = (RCT12SpriteDuck*)cdst;
             dst->frame = src->frame;
             dst->target_x = src->target_x;
@@ -1289,7 +1329,7 @@ void S6Exporter::ExportSpriteMisc(RCT12SpriteBase* cdst, const rct_sprite_common
     }
 }
 
-void S6Exporter::ExportSpriteLitter(RCT12SpriteLitter* dst, const rct_litter* src)
+void S6Exporter::ExportSpriteLitter(RCT12SpriteLitter* dst, const Litter* src)
 {
     ExportSpriteCommonProperties(dst, src);
     dst->creationTick = src->creationTick;
@@ -1325,7 +1365,7 @@ void S6Exporter::ExportBanner(RCT12Banner& dst, const Banner& src)
         }
 
         auto stringId = AllocateUserString(bannerText);
-        if (stringId != opt::nullopt)
+        if (stringId != std::nullopt)
         {
             dst.string_idx = *stringId;
         }
@@ -1390,9 +1430,13 @@ void S6Exporter::ExportTileElement(RCT12TileElement* dst, TileElement* src)
     uint8_t tileElementType = src->GetType();
     dst->ClearAs(tileElementType);
     dst->SetDirection(src->GetDirection());
-    dst->flags = src->flags;
     dst->base_height = src->base_height;
     dst->clearance_height = src->clearance_height;
+
+    // All saved in "flags"
+    dst->SetOccupiedQuadrants(src->GetOccupiedQuadrants());
+    dst->SetGhost(src->IsGhost());
+    dst->SetLastForTile(src->IsLastForTile());
 
     switch (tileElementType)
     {
@@ -1417,7 +1461,7 @@ void S6Exporter::ExportTileElement(RCT12TileElement* dst, TileElement* src)
             auto dst2 = dst->AsPath();
             auto src2 = src->AsPath();
 
-            dst2->SetPathEntryIndex(src2->GetPathEntryIndex());
+            dst2->SetPathEntryIndex(src2->GetSurfaceEntryIndex());
             dst2->SetQueueBannerDirection(src2->GetQueueBannerDirection());
             dst2->SetSloped(src2->IsSloped());
             dst2->SetSlopeDirection(src2->GetSlopeDirection());
@@ -1431,6 +1475,8 @@ void S6Exporter::ExportTileElement(RCT12TileElement* dst, TileElement* src)
             dst2->SetAddition(src2->GetAddition());
             dst2->SetAdditionIsGhost(src2->AdditionIsGhost());
             dst2->SetAdditionStatus(src2->GetAdditionStatus());
+            dst2->SetIsBroken(src2->IsBroken());
+            dst2->SetIsBlockedByVehicle(src2->IsBlockedByVehicle());
 
             break;
         }
@@ -1450,6 +1496,8 @@ void S6Exporter::ExportTileElement(RCT12TileElement* dst, TileElement* src)
             dst2->SetInverted(src2->IsInverted());
             dst2->SetBrakeBoosterSpeed(src2->GetBrakeBoosterSpeed());
             dst2->SetPhotoTimeout(src2->GetPhotoTimeout());
+            dst2->SetBlockBrakeClosed(src2->BlockBrakeClosed());
+            dst2->SetIsIndestructible(src2->IsIndestructible());
 
             auto ride = get_ride(dst2->GetRideIndex());
             if (ride)
@@ -1506,9 +1554,19 @@ void S6Exporter::ExportTileElement(RCT12TileElement* dst, TileElement* src)
             dst2->SetSecondaryColour(src2->GetSecondaryColour());
             dst2->SetTertiaryColour(src2->GetTertiaryColour());
             dst2->SetAnimationFrame(src2->GetAnimationFrame());
-            dst2->SetBannerIndex(src2->GetBannerIndex());
             dst2->SetAcrossTrack(src2->IsAcrossTrack());
             dst2->SetAnimationIsBackwards(src2->AnimationIsBackwards());
+
+            auto entry = src2->GetEntry();
+            if (entry != nullptr && entry->wall.scrolling_mode != SCROLLING_MODE_NONE)
+            {
+                auto bannerIndex = src2->GetBannerIndex();
+                if (bannerIndex != BANNER_INDEX_NULL)
+                    dst2->SetBannerIndex(bannerIndex);
+                else
+                    dst2->SetBannerIndex(RCT12_BANNER_INDEX_NULL);
+            }
+
             break;
         }
         case TILE_ELEMENT_TYPE_LARGE_SCENERY:
@@ -1520,7 +1578,17 @@ void S6Exporter::ExportTileElement(RCT12TileElement* dst, TileElement* src)
             dst2->SetSequenceIndex(src2->GetSequenceIndex());
             dst2->SetPrimaryColour(src2->GetPrimaryColour());
             dst2->SetSecondaryColour(src2->GetSecondaryColour());
-            dst2->SetBannerIndex(src2->GetBannerIndex());
+
+            auto entry = src2->GetEntry();
+            if (entry != nullptr && entry->large_scenery.scrolling_mode != SCROLLING_MODE_NONE)
+            {
+                auto bannerIndex = src2->GetBannerIndex();
+                if (bannerIndex != BANNER_INDEX_NULL)
+                    dst2->SetBannerIndex(bannerIndex);
+                else
+                    dst2->SetBannerIndex(RCT12_BANNER_INDEX_NULL);
+            }
+
             break;
         }
         case TILE_ELEMENT_TYPE_BANNER:
@@ -1528,9 +1596,13 @@ void S6Exporter::ExportTileElement(RCT12TileElement* dst, TileElement* src)
             auto dst2 = dst->AsBanner();
             auto src2 = src->AsBanner();
 
-            dst2->SetIndex(src2->GetIndex());
             dst2->SetPosition(src2->GetPosition());
             dst2->SetAllowedEdges(src2->GetAllowedEdges());
+            auto bannerIndex = src2->GetIndex();
+            if (bannerIndex != BANNER_INDEX_NULL)
+                dst2->SetIndex(bannerIndex);
+            else
+                dst2->SetIndex(RCT12_BANNER_INDEX_NULL);
             break;
         }
         default:
@@ -1538,7 +1610,7 @@ void S6Exporter::ExportTileElement(RCT12TileElement* dst, TileElement* src)
     }
 }
 
-opt::optional<uint16_t> S6Exporter::AllocateUserString(const std::string_view& value)
+std::optional<uint16_t> S6Exporter::AllocateUserString(const std::string_view& value)
 {
     auto nextId = _userStrings.size();
     if (nextId < RCT12_MAX_USER_STRINGS)

@@ -63,8 +63,18 @@ using namespace OpenRCT2;
 /**
  * Replaces 0x00993CCC, 0x00993CCE
  */
-const CoordsXY CoordsDirectionDelta[] = { { -32, 0 },   { 0, +32 },   { +32, 0 },   { 0, -32 },
-                                          { -32, +32 }, { +32, +32 }, { +32, -32 }, { -32, -32 } };
+// clang-format off
+const std::array<CoordsXY, 8> CoordsDirectionDelta = {
+    CoordsXY{ -COORDS_XY_STEP, 0 },
+    CoordsXY{               0, +COORDS_XY_STEP },
+    CoordsXY{ +COORDS_XY_STEP, 0 },
+    CoordsXY{               0, -COORDS_XY_STEP },
+    CoordsXY{ -COORDS_XY_STEP, +COORDS_XY_STEP },
+    CoordsXY{ +COORDS_XY_STEP, +COORDS_XY_STEP },
+    CoordsXY{ +COORDS_XY_STEP, -COORDS_XY_STEP },
+    CoordsXY{ -COORDS_XY_STEP, -COORDS_XY_STEP }
+};
+// clang-format on
 
 const TileCoordsXY TileDirectionDelta[] = { { -1, 0 },  { 0, +1 },  { +1, 0 },  { 0, -1 },
                                             { -1, +1 }, { +1, +1 }, { +1, -1 }, { -1, -1 } };
@@ -158,7 +168,7 @@ TileElement* map_get_first_element_at(const CoordsXY& elementPos)
 {
     if (!map_is_location_valid(elementPos))
     {
-        log_error("Trying to access element outside of range");
+        log_verbose("Trying to access element outside of range");
         return nullptr;
     }
     auto tileElementPos = TileCoordsXY{ elementPos };
@@ -406,14 +416,14 @@ int16_t tile_element_height(const CoordsXY& loc)
 {
     // Off the map
     if (!map_is_location_valid(loc))
-        return 16;
+        return MINIMUM_LAND_HEIGHT_BIG;
 
     // Get the surface element for the tile
     auto surfaceElement = map_get_surface_element_at(loc);
 
     if (surfaceElement == nullptr)
     {
-        return 16;
+        return MINIMUM_LAND_HEIGHT_BIG;
     }
 
     uint16_t height = surfaceElement->GetBaseZ();
@@ -515,7 +525,7 @@ int16_t tile_element_height(const CoordsXY& loc)
             return height;
         }
         // This tile is essentially at the next height level
-        height += 0x10;
+        height += LAND_HEIGHT_STEP;
         // so we move *down* the slope
         if (quad < 0)
         {
@@ -562,9 +572,7 @@ int16_t tile_element_water_height(const CoordsXY& loc)
         return 0;
     }
 
-    uint16_t height = (surfaceElement->GetWaterHeight() << 4);
-
-    return height;
+    return surfaceElement->GetWaterHeight();
 }
 
 /**
@@ -625,7 +633,7 @@ void map_update_path_wide_flags()
     uint16_t y = gWidePathTileLoopY;
     for (int32_t i = 0; i < 128; i++)
     {
-        footpath_update_path_wide_flags(x, y);
+        footpath_update_path_wide_flags({ x, y });
 
         // Next x, y tile
         x += COORDS_XY_STEP;
@@ -647,12 +655,12 @@ void map_update_path_wide_flags()
  *
  *  rct2: 0x006A7B84
  */
-int32_t map_height_from_slope(const CoordsXY& coords, int32_t slope, bool isSloped)
+int32_t map_height_from_slope(const CoordsXY& coords, int32_t slopeDirection, bool isSloped)
 {
     if (!isSloped)
         return 0;
 
-    switch (slope & FOOTPATH_PROPERTIES_SLOPE_DIRECTION_MASK)
+    switch (slopeDirection % NumOrthogonalDirections)
     {
         case TILE_ELEMENT_DIRECTION_WEST:
             return (31 - (coords.x & 31)) / 2;
@@ -1127,8 +1135,9 @@ bool map_check_free_elements_and_reorganise(int32_t numElements)
  *
  *  rct2: 0x0068B1F6
  */
-TileElement* tile_element_insert(const TileCoordsXYZ& loc, int32_t occupiedQuadrants)
+TileElement* tile_element_insert(const CoordsXYZ& loc, int32_t occupiedQuadrants)
 {
+    const auto& tileLoc = TileCoordsXYZ(loc);
     TileElement *originalTileElement, *newTileElement, *insertedElement;
     bool isLastForTile = false;
 
@@ -1139,13 +1148,13 @@ TileElement* tile_element_insert(const TileCoordsXYZ& loc, int32_t occupiedQuadr
     }
 
     newTileElement = gNextFreeTileElement;
-    originalTileElement = gTileElementTilePointers[loc.y * MAXIMUM_MAP_SIZE_TECHNICAL + loc.x];
+    originalTileElement = gTileElementTilePointers[tileLoc.y * MAXIMUM_MAP_SIZE_TECHNICAL + tileLoc.x];
 
     // Set tile index pointer to point to new element block
-    gTileElementTilePointers[loc.y * MAXIMUM_MAP_SIZE_TECHNICAL + loc.x] = newTileElement;
+    gTileElementTilePointers[tileLoc.y * MAXIMUM_MAP_SIZE_TECHNICAL + tileLoc.x] = newTileElement;
 
     // Copy all elements that are below the insert height
-    while (loc.z >= originalTileElement->base_height)
+    while (loc.z >= originalTileElement->GetBaseZ())
     {
         // Copy over map element
         *newTileElement = *originalTileElement;
@@ -1165,11 +1174,11 @@ TileElement* tile_element_insert(const TileCoordsXYZ& loc, int32_t occupiedQuadr
     // Insert new map element
     insertedElement = newTileElement;
     newTileElement->type = 0;
-    newTileElement->base_height = loc.z;
-    newTileElement->flags = 0;
+    newTileElement->SetBaseZ(loc.z);
+    newTileElement->Flags = 0;
     newTileElement->SetLastForTile(isLastForTile);
     newTileElement->SetOccupiedQuadrants(occupiedQuadrants);
-    newTileElement->clearance_height = loc.z;
+    newTileElement->SetClearanceZ(loc.z);
     std::memset(&newTileElement->pad_04, 0, sizeof(newTileElement->pad_04));
     std::memset(&newTileElement->pad_08, 0, sizeof(newTileElement->pad_08));
     newTileElement++;
@@ -1191,65 +1200,68 @@ TileElement* tile_element_insert(const TileCoordsXYZ& loc, int32_t occupiedQuadr
     return insertedElement;
 }
 
+class ConstructClearResult final : public GameActionResult
+{
+public:
+    uint8_t GroundFlags{ 0 };
+};
+
 /**
  *
  *  rct2: 0x0068BB18
  */
-void map_obstruction_set_error_text(TileElement* tileElement)
+void map_obstruction_set_error_text(TileElement* tileElement, GameActionResult& res)
 {
-    rct_string_id errorStringId;
     Ride* ride;
     rct_scenery_entry* sceneryEntry;
 
-    errorStringId = STR_OBJECT_IN_THE_WAY;
+    res.ErrorMessage = STR_OBJECT_IN_THE_WAY;
     switch (tileElement->GetType())
     {
         case TILE_ELEMENT_TYPE_SURFACE:
-            errorStringId = STR_RAISE_OR_LOWER_LAND_FIRST;
+            res.ErrorMessage = STR_RAISE_OR_LOWER_LAND_FIRST;
             break;
         case TILE_ELEMENT_TYPE_PATH:
-            errorStringId = STR_FOOTPATH_IN_THE_WAY;
+            res.ErrorMessage = STR_FOOTPATH_IN_THE_WAY;
             break;
         case TILE_ELEMENT_TYPE_TRACK:
             ride = get_ride(tileElement->AsTrack()->GetRideIndex());
             if (ride != nullptr)
             {
-                errorStringId = STR_X_IN_THE_WAY;
-                ride->FormatNameTo(gCommonFormatArgs);
+                res.ErrorMessage = STR_X_IN_THE_WAY;
+                ride->FormatNameTo(res.ErrorMessageArgs.data());
             }
             break;
         case TILE_ELEMENT_TYPE_SMALL_SCENERY:
             sceneryEntry = tileElement->AsSmallScenery()->GetEntry();
-            errorStringId = STR_X_IN_THE_WAY;
-            set_format_arg(0, rct_string_id, sceneryEntry->name);
+            res.ErrorMessage = STR_X_IN_THE_WAY;
+            set_format_arg<rct_string_id>(res.ErrorMessageArgs.data(), 0, sceneryEntry->name);
             break;
         case TILE_ELEMENT_TYPE_ENTRANCE:
             switch (tileElement->AsEntrance()->GetEntranceType())
             {
                 case ENTRANCE_TYPE_RIDE_ENTRANCE:
-                    errorStringId = STR_RIDE_ENTRANCE_IN_THE_WAY;
+                    res.ErrorMessage = STR_RIDE_ENTRANCE_IN_THE_WAY;
                     break;
                 case ENTRANCE_TYPE_RIDE_EXIT:
-                    errorStringId = STR_RIDE_EXIT_IN_THE_WAY;
+                    res.ErrorMessage = STR_RIDE_EXIT_IN_THE_WAY;
                     break;
                 case ENTRANCE_TYPE_PARK_ENTRANCE:
-                    errorStringId = STR_PARK_ENTRANCE_IN_THE_WAY;
+                    res.ErrorMessage = STR_PARK_ENTRANCE_IN_THE_WAY;
                     break;
             }
             break;
         case TILE_ELEMENT_TYPE_WALL:
             sceneryEntry = tileElement->AsWall()->GetEntry();
-            errorStringId = STR_X_IN_THE_WAY;
-            set_format_arg(0, rct_string_id, sceneryEntry->name);
+            res.ErrorMessage = STR_X_IN_THE_WAY;
+            set_format_arg<rct_string_id>(res.ErrorMessageArgs.data(), 0, sceneryEntry->name);
             break;
         case TILE_ELEMENT_TYPE_LARGE_SCENERY:
             sceneryEntry = tileElement->AsLargeScenery()->GetEntry();
-            errorStringId = STR_X_IN_THE_WAY;
-            set_format_arg(0, rct_string_id, sceneryEntry->name);
+            res.ErrorMessage = STR_X_IN_THE_WAY;
+            set_format_arg<rct_string_id>(res.ErrorMessageArgs.data(), 0, sceneryEntry->name);
             break;
     }
-
-    gGameCommandErrorText = errorStringId;
 }
 
 /**
@@ -1262,30 +1274,35 @@ void map_obstruction_set_error_text(TileElement* tileElement)
  *  ebp = clearFunc
  *  bl = bl
  */
-bool map_can_construct_with_clear_at(
-    const CoordsXYRangedZ& pos, CLEAR_FUNC clearFunc, QuarterTile quarterTile, uint8_t flags, money32* price,
-    uint8_t crossingMode)
+static GameActionResult::Ptr map_can_construct_with_clear_at(
+    const CoordsXYRangedZ& pos, CLEAR_FUNC clearFunc, QuarterTile quarterTile, uint8_t flags, uint8_t crossingMode)
 {
     int32_t northZ, eastZ, baseHeight, southZ, westZ, water_height;
     northZ = eastZ = baseHeight = southZ = westZ = water_height = 0;
+    auto res = std::make_unique<ConstructClearResult>();
     uint8_t slope = 0;
 
-    gMapGroundFlags = ELEMENT_IS_ABOVE_GROUND;
+    res->GroundFlags = ELEMENT_IS_ABOVE_GROUND;
     bool canBuildCrossing = false;
     if (pos.x >= gMapSizeUnits || pos.y >= gMapSizeUnits || pos.x < 32 || pos.y < 32)
     {
-        gGameCommandErrorText = STR_OFF_EDGE_OF_MAP;
-        return false;
+        res->Error = GA_ERROR::INVALID_PARAMETERS;
+        res->ErrorMessage = STR_OFF_EDGE_OF_MAP;
+        return res;
     }
 
     if (gCheatsDisableClearanceChecks)
     {
-        return true;
+        return res;
     }
 
     TileElement* tileElement = map_get_first_element_at(pos);
     if (tileElement == nullptr)
-        return false;
+    {
+        res->Error = GA_ERROR::UNKNOWN;
+        res->ErrorMessage = 0;
+        return res;
+    }
     do
     {
         if (tileElement->GetType() != TILE_ELEMENT_TYPE_SURFACE)
@@ -1300,10 +1317,10 @@ bool map_can_construct_with_clear_at(
             }
             continue;
         }
-        water_height = tileElement->AsSurface()->GetWaterHeight() * 2 * 8;
+        water_height = tileElement->AsSurface()->GetWaterHeight();
         if (water_height && water_height > pos.baseZ && tileElement->GetBaseZ() < pos.clearanceZ)
         {
-            gMapGroundFlags |= ELEMENT_IS_UNDERWATER;
+            res->GroundFlags |= ELEMENT_IS_UNDERWATER;
             if (water_height < pos.clearanceZ)
             {
                 goto loc_68BAE6;
@@ -1313,10 +1330,12 @@ bool map_can_construct_with_clear_at(
         if (gParkFlags & PARK_FLAGS_FORBID_HIGH_CONSTRUCTION)
         {
             auto heightFromGround = pos.clearanceZ - tileElement->GetBaseZ();
+
             if (heightFromGround > (18 * COORDS_Z_STEP))
             {
-                gGameCommandErrorText = STR_LOCAL_AUTHORITY_WONT_ALLOW_CONSTRUCTION_ABOVE_TREE_HEIGHT;
-                return false;
+                res->Error = GA_ERROR::DISALLOWED;
+                res->ErrorMessage = STR_LOCAL_AUTHORITY_WONT_ALLOW_CONSTRUCTION_ABOVE_TREE_HEIGHT;
+                return res;
             }
         }
 
@@ -1332,8 +1351,8 @@ bool map_can_construct_with_clear_at(
             if (tileElement->GetBaseZ() >= pos.clearanceZ)
             {
                 // loc_68BA81
-                gMapGroundFlags |= ELEMENT_IS_UNDERGROUND;
-                gMapGroundFlags &= ~ELEMENT_IS_ABOVE_GROUND;
+                res->GroundFlags |= ELEMENT_IS_UNDERGROUND;
+                res->GroundFlags &= ~ELEMENT_IS_ABOVE_GROUND;
             }
             else
             {
@@ -1381,7 +1400,7 @@ bool map_can_construct_with_clear_at(
             loc_68BABC:
                 if (clearFunc != nullptr)
                 {
-                    if (!clearFunc(&tileElement, pos, flags, price))
+                    if (!clearFunc(&tileElement, pos, flags, &res->Cost))
                     {
                         continue;
                     }
@@ -1408,27 +1427,44 @@ bool map_can_construct_with_clear_at(
 
                 if (tileElement != nullptr)
                 {
-                    map_obstruction_set_error_text(tileElement);
+                    map_obstruction_set_error_text(tileElement, *res);
+                    res->Error = GA_ERROR::NO_CLEARANCE;
                 }
-                return false;
+                return res;
 
             loc_68BAE6:
                 if (clearFunc != nullptr)
                 {
-                    if (!clearFunc(&tileElement, pos, flags, price))
+                    if (!clearFunc(&tileElement, pos, flags, &res->Cost))
                     {
                         goto loc_68B9B7;
                     }
                 }
                 if (tileElement != nullptr)
                 {
-                    gGameCommandErrorText = STR_CANNOT_BUILD_PARTLY_ABOVE_AND_PARTLY_BELOW_WATER;
+                    res->Error = GA_ERROR::NO_CLEARANCE;
+                    res->ErrorMessage = STR_CANNOT_BUILD_PARTLY_ABOVE_AND_PARTLY_BELOW_WATER;
                 }
-                return false;
+                return res;
             }
         }
     } while (!(tileElement++)->IsLastForTile());
-    return true;
+    return res;
+}
+
+bool map_can_construct_with_clear_at(
+    const CoordsXYRangedZ& pos, CLEAR_FUNC clearFunc, QuarterTile quarterTile, uint8_t flags, money32* price,
+    uint8_t crossingMode)
+{
+    GameActionResult::Ptr res = map_can_construct_with_clear_at(pos, clearFunc, quarterTile, flags, crossingMode);
+    gGameCommandErrorText = res->ErrorMessage;
+    std::copy(res->ErrorMessageArgs.begin(), res->ErrorMessageArgs.end(), gCommonFormatArgs);
+    if (price != nullptr)
+    {
+        *price += res->Cost;
+    }
+    gMapGroundFlags = dynamic_cast<ConstructClearResult*>(res.get())->GroundFlags;
+    return res->Error == GA_ERROR::OK;
 }
 
 /**
@@ -1644,8 +1680,8 @@ static void clear_element_at(const CoordsXY& loc, TileElement** elementPtr)
     switch (element->GetType())
     {
         case TILE_ELEMENT_TYPE_SURFACE:
-            element->base_height = 2;
-            element->clearance_height = 2;
+            element->base_height = MINIMUM_LAND_HEIGHT;
+            element->clearance_height = MINIMUM_LAND_HEIGHT;
             element->AsSurface()->SetSlope(TILE_ELEMENT_SLOPE_FLAT);
             element->AsSurface()->SetSurfaceStyle(TERRAIN_GRASS);
             element->AsSurface()->SetEdgeStyle(TERRAIN_EDGE_ROCK);
@@ -1728,21 +1764,19 @@ static void clear_elements_at(const CoordsXY& loc)
 
 int32_t map_get_highest_z(const CoordsXY& loc)
 {
-    uint32_t z;
-
     auto surfaceElement = map_get_surface_element_at(loc);
     if (surfaceElement == nullptr)
         return -1;
 
-    z = surfaceElement->GetBaseZ();
+    auto z = surfaceElement->GetBaseZ();
 
     // Raise z so that is above highest point of land and water on tile
     if ((surfaceElement->GetSlope() & TILE_ELEMENT_SLOPE_ALL_CORNERS_UP) != TILE_ELEMENT_SLOPE_FLAT)
-        z += 16;
+        z += LAND_HEIGHT_STEP;
     if ((surfaceElement->GetSlope() & TILE_ELEMENT_SLOPE_DOUBLE_HEIGHT) != 0)
-        z += 16;
+        z += LAND_HEIGHT_STEP;
 
-    z = std::max(z, surfaceElement->GetWaterHeight() * 16);
+    z = std::max(z, surfaceElement->GetWaterHeight());
     return z;
 }
 
@@ -1848,7 +1882,7 @@ EntranceElement* map_get_ride_exit_element_at(const CoordsXYZ& exitCoords, bool 
     return nullptr;
 }
 
-SmallSceneryElement* map_get_small_scenery_element_at(CoordsXYZ sceneryCoords, int32_t type, uint8_t quadrant)
+SmallSceneryElement* map_get_small_scenery_element_at(const CoordsXYZ& sceneryCoords, int32_t type, uint8_t quadrant)
 {
     auto sceneryTileCoords = TileCoordsXYZ{ sceneryCoords };
     TileElement* tileElement = map_get_first_element_at(sceneryCoords);
@@ -2059,7 +2093,7 @@ int32_t map_get_tile_quadrant(const CoordsXY& mapPos)
  *
  *  rct2: 0x00693BFF
  */
-bool map_surface_is_blocked(CoordsXY mapCoords)
+bool map_surface_is_blocked(const CoordsXY& mapCoords)
 {
     if (!map_is_location_valid(mapCoords))
         return true;
@@ -2071,9 +2105,7 @@ bool map_surface_is_blocked(CoordsXY mapCoords)
         return true;
     }
 
-    int16_t water_height = surfaceElement->GetWaterHeight();
-    water_height *= 2;
-    if (water_height > surfaceElement->base_height)
+    if (surfaceElement->GetWaterHeight() > surfaceElement->GetBaseZ())
         return true;
 
     int16_t base_z = surfaceElement->base_height;
@@ -2199,7 +2231,7 @@ TileElement* map_get_track_element_at_of_type_seq(const CoordsXYZ& trackPos, int
     return nullptr;
 }
 
-TrackElement* map_get_track_element_at_of_type(CoordsXYZD location, int32_t trackType)
+TrackElement* map_get_track_element_at_of_type(const CoordsXYZD& location, int32_t trackType)
 {
     auto tileElement = map_get_first_element_at(location);
     if (tileElement != nullptr)
@@ -2222,7 +2254,7 @@ TrackElement* map_get_track_element_at_of_type(CoordsXYZD location, int32_t trac
     return nullptr;
 }
 
-TrackElement* map_get_track_element_at_of_type_seq(CoordsXYZD location, int32_t trackType, int32_t sequence)
+TrackElement* map_get_track_element_at_of_type_seq(const CoordsXYZD& location, int32_t trackType, int32_t sequence)
 {
     auto tileElement = map_get_first_element_at(location);
     if (tileElement != nullptr)
@@ -2333,7 +2365,7 @@ TileElement* map_get_track_element_at_with_direction_from_ride(const CoordsXYZD&
     return nullptr;
 };
 
-WallElement* map_get_wall_element_at(CoordsXYZD wallCoords)
+WallElement* map_get_wall_element_at(const CoordsXYZD& wallCoords)
 {
     auto tileWallCoords = TileCoordsXYZ(wallCoords);
     TileElement* tileElement = map_get_first_element_at(wallCoords);

@@ -19,13 +19,13 @@ DEFINE_GAME_ACTION(RideEntranceExitRemoveAction, GAME_COMMAND_REMOVE_RIDE_ENTRAN
 private:
     CoordsXY _loc;
     NetworkRideId_t _rideIndex;
-    uint8_t _stationNum;
+    StationIndex _stationNum;
     bool _isExit;
 
 public:
     RideEntranceExitRemoveAction() = default;
 
-    RideEntranceExitRemoveAction(CoordsXY loc, ride_id_t rideIndex, uint8_t stationNum, bool isExit)
+    RideEntranceExitRemoveAction(const CoordsXY& loc, ride_id_t rideIndex, StationIndex stationNum, bool isExit)
         : _loc(loc)
         , _rideIndex(rideIndex)
         , _stationNum(stationNum)
@@ -171,7 +171,7 @@ public:
         res->Position.z = tile_element_height(res->Position);
 
         footpath_queue_chain_reset();
-        maze_entrance_hedge_replacement(_loc.x, _loc.y, tileElement);
+        maze_entrance_hedge_replacement({ _loc, tileElement });
         footpath_remove_edges_at(_loc, tileElement);
 
         tile_element_remove(tileElement);

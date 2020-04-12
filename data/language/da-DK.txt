@@ -3690,6 +3690,20 @@ STR_6345    :Felt Undersøger: Forøg element højde
 STR_6346    :Felt Undersøger: Reducer element højde
 STR_6347    :Sti tilføjelse kan ikke placeres på jernbaneoverskæring!
 STR_6348    :Fjern jernbaneoverskæring først!
+STR_6349    :Tilfældig titelsekvens
+STR_6350    :Spredning
+STR_6351    :Sceneri sprednings værktøj
+STR_6352    :Tæthed
+STR_6353    :{SMALLFONT}{BLACK}Lav tæthed
+STR_6354    :{SMALLFONT}{BLACK}Mellem tæthed
+STR_6355    :{SMALLFONT}{BLACK}Høj tæthed
+STR_6356    :{SMALLFONT}{BLACK}Generer ænder hvis parken indeholder vand
+STR_6357    :{SMALLFONT}{BLACK}Fjern alle ænder fra kortet
+STR_6358    :Side {UINT16}
+STR_6359    :{POP16}{POP16}Side {UINT16}
+STR_6360    :{SMALLFONT}{BLACK}{COMMA32}
+STR_6361    :Aktiver lyseffekter på forlystelser (eksperimentel)
+STR_6362    :{SMALLFONT}{BLACK}Hvis aktiv, vognene for spor-forlystelser vil lyse op om natten.
 
 #############
 # Scenarios #

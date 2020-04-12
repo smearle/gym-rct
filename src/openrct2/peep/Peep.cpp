@@ -55,9 +55,9 @@ utf8 gPathFindDebugPeepName[256];
 #endif // defined(DEBUG_LEVEL_1) && DEBUG_LEVEL_1
 
 uint8_t gGuestChangeModifier;
-uint16_t gNumGuestsInPark;
-uint16_t gNumGuestsInParkLastWeek;
-uint16_t gNumGuestsHeadingForPark;
+uint32_t gNumGuestsInPark;
+uint32_t gNumGuestsInParkLastWeek;
+uint32_t gNumGuestsHeadingForPark;
 
 money16 gGuestInitialCash;
 uint8_t gGuestInitialHappiness;
@@ -342,13 +342,13 @@ Staff* Peep::AsStaff()
 
 void Peep::Invalidate()
 {
-    invalidate_sprite_2((rct_sprite*)this);
+    invalidate_sprite_2(this);
 }
 
 void Peep::MoveTo(int16_t destX, int16_t destY, int16_t destZ)
 {
     Invalidate(); // Invalidate current position.
-    sprite_move(destX, destY, destZ, (rct_sprite*)this);
+    sprite_move(destX, destY, destZ, this);
     Invalidate(); // Invalidate new position.
 }
 
@@ -472,7 +472,7 @@ bool Peep::CheckForPath()
         return true;
     }
 
-    TileElement* tile_element = map_get_first_element_at({ next_x, next_y });
+    TileElement* tile_element = map_get_first_element_at(NextLoc);
 
     uint8_t map_type = TILE_ELEMENT_TYPE_PATH;
     if (GetNextIsSurface())
@@ -480,15 +480,13 @@ bool Peep::CheckForPath()
         map_type = TILE_ELEMENT_TYPE_SURFACE;
     }
 
-    int32_t height = next_z;
-
     do
     {
         if (tile_element == nullptr)
             break;
         if (tile_element->GetType() == map_type)
         {
-            if (height == tile_element->base_height)
+            if (NextLoc.z == tile_element->GetBaseZ())
             {
                 // Found a suitable path or surface
                 return true;
@@ -759,7 +757,7 @@ void Peep::PickupAbort(int32_t old_x)
 }
 
 // Returns true when a peep can be dropped at the given location. When apply is set to true the peep gets dropped.
-bool Peep::Place(TileCoordsXYZ location, bool apply)
+bool Peep::Place(const TileCoordsXYZ& location, bool apply)
 {
     auto* pathElement = map_get_path_element_at(location);
     TileElement* tileElement = reinterpret_cast<TileElement*>(pathElement);
@@ -773,7 +771,7 @@ bool Peep::Place(TileCoordsXYZ location, bool apply)
 
     // Set the coordinate of destination to be exactly
     // in the middle of a tile.
-    CoordsXYZ destination = { location.x * 32 + 16, location.y * 32 + 16, tileElement->GetBaseZ() + 16 };
+    CoordsXYZ destination = { location.ToCoordsXY().ToTileCentre(), tileElement->GetBaseZ() + 16 };
 
     if (!map_is_location_owned(destination))
     {
@@ -849,7 +847,7 @@ void peep_sprite_remove(Peep* peep)
 
         news_item_disable_news(NEWS_ITEM_PEEP, peep->sprite_index);
     }
-    sprite_remove((rct_sprite*)peep);
+    sprite_remove(peep);
 }
 
 /**
@@ -926,7 +924,7 @@ void Peep::UpdateFalling()
                 // If the surface is water check to see if we could be drowning
                 if (tile_element->AsSurface()->GetWaterHeight() > 0)
                 {
-                    int32_t height = tile_element->AsSurface()->GetWaterHeight() * 16;
+                    int32_t height = tile_element->AsSurface()->GetWaterHeight();
 
                     if (height - 4 >= z && height < z + 20)
                     {
@@ -977,9 +975,7 @@ void Peep::UpdateFalling()
 
     MoveTo(x, y, saved_height);
 
-    next_x = x & 0xFFE0;
-    next_y = y & 0xFFE0;
-    next_z = saved_map->base_height;
+    NextLoc = { CoordsXY{ x, y }.ToTileStart(), saved_map->GetBaseZ() };
 
     if (saved_map->GetType() != TILE_ELEMENT_TYPE_PATH)
     {
@@ -1188,9 +1184,8 @@ void peep_problem_warnings_update()
     Peep* peep;
     Ride* ride;
     uint16_t spriteIndex;
-    uint16_t guests_in_park = gNumGuestsInPark;
-    int32_t hunger_counter = 0, lost_counter = 0, noexit_counter = 0, thirst_counter = 0, litter_counter = 0,
-            disgust_counter = 0, bathroom_counter = 0, vandalism_counter = 0;
+    uint32_t hunger_counter = 0, lost_counter = 0, noexit_counter = 0, thirst_counter = 0, litter_counter = 0,
+             disgust_counter = 0, bathroom_counter = 0, vandalism_counter = 0;
     uint8_t* warning_throttle = gPeepWarningThrottle;
 
     FOR_ALL_GUESTS (spriteIndex, peep)
@@ -1256,7 +1251,7 @@ void peep_problem_warnings_update()
     // could maybe be packed into a loop, would lose a lot of clarity though
     if (warning_throttle[0])
         --warning_throttle[0];
-    else if (hunger_counter >= PEEP_HUNGER_WARNING_THRESHOLD && hunger_counter >= guests_in_park / 16)
+    else if (hunger_counter >= PEEP_HUNGER_WARNING_THRESHOLD && hunger_counter >= gNumGuestsInPark / 16)
     {
         warning_throttle[0] = 4;
         if (gConfigNotifications.guest_warnings)
@@ -1267,7 +1262,7 @@ void peep_problem_warnings_update()
 
     if (warning_throttle[1])
         --warning_throttle[1];
-    else if (thirst_counter >= PEEP_THIRST_WARNING_THRESHOLD && thirst_counter >= guests_in_park / 16)
+    else if (thirst_counter >= PEEP_THIRST_WARNING_THRESHOLD && thirst_counter >= gNumGuestsInPark / 16)
     {
         warning_throttle[1] = 4;
         if (gConfigNotifications.guest_warnings)
@@ -1278,7 +1273,7 @@ void peep_problem_warnings_update()
 
     if (warning_throttle[2])
         --warning_throttle[2];
-    else if (bathroom_counter >= PEEP_BATHROOM_WARNING_THRESHOLD && bathroom_counter >= guests_in_park / 16)
+    else if (bathroom_counter >= PEEP_BATHROOM_WARNING_THRESHOLD && bathroom_counter >= gNumGuestsInPark / 16)
     {
         warning_throttle[2] = 4;
         if (gConfigNotifications.guest_warnings)
@@ -1289,7 +1284,7 @@ void peep_problem_warnings_update()
 
     if (warning_throttle[3])
         --warning_throttle[3];
-    else if (litter_counter >= PEEP_LITTER_WARNING_THRESHOLD && litter_counter >= guests_in_park / 32)
+    else if (litter_counter >= PEEP_LITTER_WARNING_THRESHOLD && litter_counter >= gNumGuestsInPark / 32)
     {
         warning_throttle[3] = 4;
         if (gConfigNotifications.guest_warnings)
@@ -1300,7 +1295,7 @@ void peep_problem_warnings_update()
 
     if (warning_throttle[4])
         --warning_throttle[4];
-    else if (disgust_counter >= PEEP_DISGUST_WARNING_THRESHOLD && disgust_counter >= guests_in_park / 32)
+    else if (disgust_counter >= PEEP_DISGUST_WARNING_THRESHOLD && disgust_counter >= gNumGuestsInPark / 32)
     {
         warning_throttle[4] = 4;
         if (gConfigNotifications.guest_warnings)
@@ -1311,7 +1306,7 @@ void peep_problem_warnings_update()
 
     if (warning_throttle[5])
         --warning_throttle[5];
-    else if (vandalism_counter >= PEEP_VANDALISM_WARNING_THRESHOLD && vandalism_counter >= guests_in_park / 32)
+    else if (vandalism_counter >= PEEP_VANDALISM_WARNING_THRESHOLD && vandalism_counter >= gNumGuestsInPark / 32)
     {
         warning_throttle[5] = 4;
         if (gConfigNotifications.guest_warnings)
@@ -1380,13 +1375,13 @@ void peep_update_crowd_noise()
     {
         if (peep->sprite_left == LOCATION_NULL)
             continue;
-        if (viewport->view_x > peep->sprite_right)
+        if (viewport->viewPos.x > peep->sprite_right)
             continue;
-        if (viewport->view_x + viewport->view_width < peep->sprite_left)
+        if (viewport->viewPos.x + viewport->view_width < peep->sprite_left)
             continue;
-        if (viewport->view_y > peep->sprite_bottom)
+        if (viewport->viewPos.y > peep->sprite_bottom)
             continue;
-        if (viewport->view_y + viewport->view_height < peep->sprite_top)
+        if (viewport->viewPos.y + viewport->view_height < peep->sprite_top)
             continue;
 
         visiblePeeps += peep->state == PEEP_STATE_QUEUING ? 1 : 2;
@@ -1415,7 +1410,7 @@ void peep_update_crowd_noise()
         // 207360000 maybe related to DSBVOLUME_MIN which is -10,000 (dB/100)
         volume = 120 - std::min(visiblePeeps, 120);
         volume = volume * volume * volume * volume;
-        volume = (((207360000 - volume) >> viewport->zoom) - 207360000) / 65536 - 150;
+        volume = (((207360000 - volume) / viewport->zoom) - 207360000) / 65536 - 150;
 
         // Load and play crowd noise if needed and set volume
         if (_crowdSoundChannel == nullptr)
@@ -1614,7 +1609,7 @@ void Peep::InsertNewThought(PeepThoughtType thoughtType, uint8_t thoughtArgument
  *
  *  rct2: 0x0069A05D
  */
-Peep* Peep::Generate(const CoordsXYZ coords)
+Peep* Peep::Generate(const CoordsXYZ& coords)
 {
     if (gSpriteListCount[SPRITE_LIST_FREE] < 400)
         return nullptr;
@@ -1753,7 +1748,7 @@ Peep* Peep::Generate(const CoordsXYZ coords)
     peep->pathfind_goal.x = 0xFF;
     peep->pathfind_goal.y = 0xFF;
     peep->pathfind_goal.z = 0xFF;
-    peep->pathfind_goal.direction = 0xFF;
+    peep->pathfind_goal.direction = INVALID_DIRECTION;
     peep->item_standard_flags = 0;
     peep->item_extra_flags = 0;
     peep->guest_heading_to_ride_id = RIDE_ID_NULL;
@@ -2409,7 +2404,7 @@ static void peep_interact_with_entrance(Peep* peep, int16_t x, int16_t y, TileEl
         }
 
         peep->time_lost = 0;
-        uint8_t stationNum = tile_element->AsEntrance()->GetStationIndex();
+        auto stationNum = tile_element->AsEntrance()->GetStationIndex();
         // Guest walks up to the ride for the first time since entering
         // the path tile or since considering another ride attached to
         // the path tile.
@@ -2644,9 +2639,7 @@ static void peep_interact_with_entrance(Peep* peep, int16_t x, int16_t y, TileEl
  */
 static void peep_footpath_move_forward(Peep* peep, int16_t x, int16_t y, TileElement* tile_element, bool vandalism)
 {
-    peep->next_x = (x & 0xFFE0);
-    peep->next_y = (y & 0xFFE0);
-    peep->next_z = tile_element->base_height;
+    peep->NextLoc = { CoordsXY{ x, y }.ToTileStart(), tile_element->GetBaseZ() };
     peep->SetNextFlags(tile_element->AsPath()->GetSlopeDirection(), tile_element->AsPath()->IsSloped(), false);
 
     int16_t z = peep->GetZOnSlope(x, y);
@@ -2696,15 +2689,15 @@ static void peep_footpath_move_forward(Peep* peep, int16_t x, int16_t y, TileEle
             if (other_peep->state != PEEP_STATE_WALKING)
                 continue;
 
-            if (abs(other_peep->z - peep->next_z * 8) > 16)
+            if (abs(other_peep->z - peep->NextLoc.z) > 16)
                 continue;
             crowded++;
             continue;
         }
         else if (sprite->generic.sprite_identifier == SPRITE_IDENTIFIER_LITTER)
         {
-            rct_litter* litter = (rct_litter*)sprite;
-            if (abs(litter->z - peep->next_z * 8) > 16)
+            Litter* litter = (Litter*)sprite;
+            if (abs(litter->z - peep->NextLoc.z) > 16)
                 continue;
 
             litter_count++;
@@ -2838,7 +2831,7 @@ static void peep_interact_with_path(Peep* peep, int16_t x, int16_t y, TileElemen
         {
             // Peep is not queuing.
             peep->time_lost = 0;
-            uint8_t stationNum = tile_element->AsPath()->GetStationIndex();
+            auto stationNum = tile_element->AsPath()->GetStationIndex();
 
             if ((tile_element->AsPath()->HasQueueBanner())
                 && (tile_element->AsPath()->GetQueueBannerDirection()
@@ -3065,7 +3058,7 @@ void Peep::PerformNextAction(uint8_t& pathing_result, TileElement*& tile_result)
         else
         {
             auto staff = AsStaff();
-            result = staff_path_finding(staff);
+            result = staff->DoPathFinding();
         }
 
         if (result != 0)
@@ -3077,7 +3070,7 @@ void Peep::PerformNextAction(uint8_t& pathing_result, TileElement*& tile_result)
 
     auto newLoc = *loc;
     CoordsXY truncatedNewLoc = newLoc.ToTileStart();
-    if (truncatedNewLoc.x == next_x && truncatedNewLoc.y == next_y)
+    if (truncatedNewLoc == CoordsXY{ NextLoc })
     {
         int16_t height = GetZOnSlope(newLoc.x, newLoc.y);
         MoveTo(newLoc.x, newLoc.y, height);
@@ -3157,7 +3150,7 @@ void Peep::PerformNextAction(uint8_t& pathing_result, TileElement*& tile_result)
             }
 
             int16_t water_height = surfaceElement->GetWaterHeight();
-            if (water_height)
+            if (water_height > 0)
             {
                 peep_return_to_centre_of_tile(this);
                 return;
@@ -3174,9 +3167,7 @@ void Peep::PerformNextAction(uint8_t& pathing_result, TileElement*& tile_result)
             }
 
             // The peep is on a surface and not on a path
-            next_x = truncatedNewLoc.x;
-            next_y = truncatedNewLoc.y;
-            next_z = surfaceElement->base_height;
+            NextLoc = { truncatedNewLoc, surfaceElement->GetBaseZ() };
             SetNextFlags(0, false, true);
 
             height = GetZOnSlope(newLoc.x, newLoc.y);
@@ -3204,7 +3195,7 @@ void peep_reset_pathfind_goal(Peep* peep)
     peep->pathfind_goal.x = 0xFF;
     peep->pathfind_goal.y = 0xFF;
     peep->pathfind_goal.z = 0xFF;
-    peep->pathfind_goal.direction = 0xFF;
+    peep->pathfind_goal.direction = INVALID_DIRECTION;
 }
 
 /**
@@ -3222,9 +3213,8 @@ int32_t Peep::GetZOnSlope(int32_t tile_x, int32_t tile_y)
         return tile_element_height({ tile_x, tile_y });
     }
 
-    int32_t height = next_z * 8;
     uint8_t slope = GetNextDirection();
-    return height + map_height_from_slope({ tile_x, tile_y }, slope, GetNextIsSloped());
+    return NextLoc.z + map_height_from_slope({ tile_x, tile_y }, slope, GetNextIsSloped());
 }
 
 rct_string_id get_real_name_string_id_from_id(uint32_t id)
@@ -3250,7 +3240,7 @@ rct_string_id get_real_name_string_id_from_id(uint32_t id)
     return dx;
 }
 
-static int32_t peep_compare(const void* sprite_index_a, const void* sprite_index_b)
+int32_t peep_compare(const void* sprite_index_a, const void* sprite_index_b)
 {
     Peep const* peep_a = GET_PEEP(*(uint16_t*)sprite_index_a);
     Peep const* peep_b = GET_PEEP(*(uint16_t*)sprite_index_b);
@@ -3458,7 +3448,7 @@ void pathfind_logging_disable()
 
 void increment_guests_in_park()
 {
-    if (gNumGuestsInPark < UINT16_MAX)
+    if (gNumGuestsInPark < UINT32_MAX)
     {
         gNumGuestsInPark++;
     }
@@ -3470,7 +3460,7 @@ void increment_guests_in_park()
 
 void increment_guests_heading_for_park()
 {
-    if (gNumGuestsHeadingForPark < UINT16_MAX)
+    if (gNumGuestsHeadingForPark < UINT32_MAX)
     {
         gNumGuestsHeadingForPark++;
     }

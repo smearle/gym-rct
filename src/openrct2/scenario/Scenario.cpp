@@ -177,6 +177,7 @@ void scenario_begin()
 
 static void scenario_end()
 {
+    game_reset_speed();
     window_close_by_class(WC_DROPDOWN);
     window_close_all_except_flags(WF_STICK_TO_BACK | WF_STICK_TO_FRONT);
     context_open_window_view(WV_PARK_OBJECTIVE);
@@ -651,8 +652,8 @@ void scenario_fix_ghosts(rct_s6_data* s6)
             {
                 if (originalElement->IsGhost())
                 {
-                    BannerIndex bannerIndex = originalElement->GetBannerIndex();
-                    if (bannerIndex != BANNER_INDEX_NULL)
+                    uint8_t bannerIndex = originalElement->GetBannerIndex();
+                    if (bannerIndex != RCT12_BANNER_INDEX_NULL)
                     {
                         auto banner = &s6->banners[bannerIndex];
                         if (banner->type != BANNER_NULL)
@@ -714,13 +715,11 @@ static void scenario_objective_check_guests_by()
 {
     uint8_t objectiveYear = gScenarioObjectiveYear;
     int16_t parkRating = gParkRating;
-    int16_t guestsInPark = gNumGuestsInPark;
-    int16_t objectiveGuests = gScenarioObjectiveNumGuests;
     int16_t currentMonthYear = gDateMonthsElapsed;
 
     if (currentMonthYear == MONTH_COUNT * objectiveYear || gConfigGeneral.allow_early_completion)
     {
-        if (parkRating >= 600 && guestsInPark >= objectiveGuests)
+        if (parkRating >= 600 && gNumGuestsInPark >= gScenarioObjectiveNumGuests)
         {
             scenario_success();
         }

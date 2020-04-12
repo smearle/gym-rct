@@ -33,6 +33,7 @@
 #include "../ride/RideData.h"
 #include "../ride/ShopItem.h"
 #include "../scenario/Scenario.h"
+#include "../util/Util.h"
 #include "../windows/Intent.h"
 #include "Entrance.h"
 #include "Map.h"
@@ -67,7 +68,7 @@ static int32_t _forcedParkRating = -1;
 /**
  * In a difficult guest generation scenario, no guests will be generated if over this value.
  */
-int32_t _suggestedGuestMaximum;
+uint32_t _suggestedGuestMaximum;
 
 /**
  * Probability out of 65535, of gaining a new guest per game tick.
@@ -102,7 +103,7 @@ void park_set_open(bool open)
  *
  *  rct2: 0x00664D05
  */
-void update_park_fences(const CoordsXY coords)
+void update_park_fences(const CoordsXY& coords)
 {
     if (map_is_edge(coords))
         return;
@@ -140,22 +141,22 @@ void update_park_fences(const CoordsXY coords)
             // As map_is_location_in_park sets the error text
             // will require to back it up.
             rct_string_id previous_error = gGameCommandErrorText;
-            if (map_is_location_in_park({ coords.x - 32, coords.y }))
+            if (map_is_location_in_park({ coords.x - COORDS_XY_STEP, coords.y }))
             {
                 newFences |= 0x8;
             }
 
-            if (map_is_location_in_park({ coords.x, coords.y - 32 }))
+            if (map_is_location_in_park({ coords.x, coords.y - COORDS_XY_STEP }))
             {
                 newFences |= 0x4;
             }
 
-            if (map_is_location_in_park({ coords.x + 32, coords.y }))
+            if (map_is_location_in_park({ coords.x + COORDS_XY_STEP, coords.y }))
             {
                 newFences |= 0x2;
             }
 
-            if (map_is_location_in_park({ coords.x, coords.y + 32 }))
+            if (map_is_location_in_park({ coords.x, coords.y + COORDS_XY_STEP }))
             {
                 newFences |= 0x1;
             }
@@ -173,13 +174,13 @@ void update_park_fences(const CoordsXY coords)
     }
 }
 
-void update_park_fences_around_tile(const CoordsXY coords)
+void update_park_fences_around_tile(const CoordsXY& coords)
 {
     update_park_fences(coords);
-    update_park_fences({ coords.x + 32, coords.y });
-    update_park_fences({ coords.x - 32, coords.y });
-    update_park_fences({ coords.x, coords.y + 32 });
-    update_park_fences({ coords.x, coords.y - 32 });
+    update_park_fences({ coords.x + COORDS_XY_STEP, coords.y });
+    update_park_fences({ coords.x - COORDS_XY_STEP, coords.y });
+    update_park_fences({ coords.x, coords.y + COORDS_XY_STEP });
+    update_park_fences({ coords.x, coords.y - COORDS_XY_STEP });
 }
 
 void set_forced_park_rating(int32_t rating)
@@ -268,7 +269,7 @@ void Park::Initialise()
     gParkRating = 0;
     _guestGenerationProbability = 0;
     gTotalRideValueForMoney = 0;
-    gResearchLastItem.rawValue = RESEARCHED_ITEMS_SEPARATOR;
+    gResearchLastItem = std::nullopt;
     gMarketingCampaigns.clear();
 
     research_reset_items();
@@ -382,8 +383,8 @@ int32_t Park::CalculateParkRating() const
         result -= 150 - (std::min<int16_t>(2000, gNumGuestsInPark) / 13);
 
         // Find the number of happy peeps and the number of peeps who can't find the park exit
-        int32_t happyGuestCount = 0;
-        int32_t lostGuestCount = 0;
+        uint32_t happyGuestCount = 0;
+        uint32_t lostGuestCount = 0;
         uint16_t spriteIndex;
         Peep* peep;
         FOR_ALL_GUESTS (spriteIndex, peep)
@@ -405,7 +406,7 @@ int32_t Park::CalculateParkRating() const
         result -= 500;
         if (gNumGuestsInPark > 0)
         {
-            result += 2 * std::min(250, (happyGuestCount * 300) / gNumGuestsInPark);
+            result += 2 * std::min(250u, (happyGuestCount * 300) / gNumGuestsInPark);
         }
 
         // Up to 25 guests can be lost without affecting the park rating.
@@ -468,7 +469,7 @@ int32_t Park::CalculateParkRating() const
 
     // Litter
     {
-        rct_litter* litter;
+        Litter* litter;
         int32_t litterCount = 0;
         for (uint16_t spriteIndex = gSpriteListHead[SPRITE_LIST_LITTER]; spriteIndex != SPRITE_INDEX_NULL;
              spriteIndex = litter->next)
@@ -516,7 +517,12 @@ money32 Park::CalculateRideValue(const Ride* ride) const
 
 money32 Park::CalculateCompanyValue() const
 {
-    return finance_get_current_cash() + gParkValue - gBankLoan;
+    money32 result = gParkValue - gBankLoan;
+
+    // Clamp addition to prevent overflow
+    result = add_clamp_money32(result, finance_get_current_cash());
+
+    return result;
 }
 
 money16 Park::CalculateTotalRideValueForMoney() const
@@ -598,7 +604,7 @@ uint32_t Park::CalculateGuestGenerationProbability() const
     uint32_t probability = 50 + std::clamp(gParkRating - 200, 0, 650);
 
     // The more guests, the lower the chance of a new one
-    int32_t numGuests = gNumGuestsInPark + gNumGuestsHeadingForPark;
+    uint32_t numGuests = gNumGuestsInPark + gNumGuestsHeadingForPark;
     if (numGuests > _suggestedGuestMaximum)
     {
         probability /= 4;

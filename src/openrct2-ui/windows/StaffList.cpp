@@ -45,11 +45,11 @@ static void window_staff_list_resize(rct_window *w);
 static void window_staff_list_mousedown(rct_window *w, rct_widgetindex widgetIndex, rct_widget* widget);
 static void window_staff_list_dropdown(rct_window *w, rct_widgetindex widgetIndex, int32_t dropdownIndex);
 static void window_staff_list_update(rct_window *w);
-static void window_staff_list_tooldown(rct_window *w, rct_widgetindex widgetIndex, ScreenCoordsXY screenCoords);
+static void window_staff_list_tooldown(rct_window *w, rct_widgetindex widgetIndex, const ScreenCoordsXY& screenCoords);
 static void window_staff_list_toolabort(rct_window *w, rct_widgetindex widgetIndex);
 static void window_staff_list_scrollgetsize(rct_window *w, int32_t scrollIndex, int32_t *width, int32_t *height);
-static void window_staff_list_scrollmousedown(rct_window *w, int32_t scrollIndex, ScreenCoordsXY screenCoords);
-static void window_staff_list_scrollmouseover(rct_window *w, int32_t scrollIndex, ScreenCoordsXY screenCoords);
+static void window_staff_list_scrollmousedown(rct_window *w, int32_t scrollIndex, const ScreenCoordsXY& screenCoords);
+static void window_staff_list_scrollmouseover(rct_window *w, int32_t scrollIndex, const ScreenCoordsXY& screenCoords);
 static void window_staff_list_invalidate(rct_window *w);
 static void window_staff_list_paint(rct_window *w, rct_drawpixelinfo *dpi);
 static void window_staff_list_scrollpaint(rct_window *w, rct_drawpixelinfo *dpi, int32_t scrollIndex);
@@ -319,11 +319,11 @@ void window_staff_list_update(rct_window* w)
             gWindowMapFlashingFlags |= (1 << 2);
             FOR_ALL_STAFF (spriteIndex, peep)
             {
-                sprite_set_flashing((rct_sprite*)peep, false);
+                sprite_set_flashing(peep, false);
 
                 if (peep->staff_type == _windowStaffListSelectedTab)
                 {
-                    sprite_set_flashing((rct_sprite*)peep, true);
+                    sprite_set_flashing(peep, true);
                 }
             }
         }
@@ -334,7 +334,7 @@ void window_staff_list_update(rct_window* w)
  *
  *  rct2: 0x006BD990
  */
-static void window_staff_list_tooldown(rct_window* w, rct_widgetindex widgetIndex, ScreenCoordsXY screenCoords)
+static void window_staff_list_tooldown(rct_window* w, rct_widgetindex widgetIndex, const ScreenCoordsXY& screenCoords)
 {
     if (widgetIndex == WIDX_STAFF_LIST_SHOW_PATROL_AREA_BUTTON)
     {
@@ -342,8 +342,7 @@ static void window_staff_list_tooldown(rct_window* w, rct_widgetindex widgetInde
 
         int32_t direction;
         TileElement* tileElement;
-        CoordsXY footpathCoords;
-        footpath_get_coordinates_from_pos(screenCoords, &footpathCoords.x, &footpathCoords.y, &direction, &tileElement);
+        auto footpathCoords = footpath_get_coordinates_from_pos(screenCoords, &direction, &tileElement);
         if (footpathCoords.isNull())
             return;
 
@@ -363,7 +362,7 @@ static void window_staff_list_tooldown(rct_window* w, rct_widgetindex widgetInde
                 {
                     continue;
                 }
-                if (!staff_is_location_in_patrol(peep, footpathCoords.x, footpathCoords.y))
+                if (!peep->AsStaff()->IsLocationInPatrol(footpathCoords))
                 {
                     continue;
                 }
@@ -453,7 +452,7 @@ void window_staff_list_scrollgetsize(rct_window* w, int32_t scrollIndex, int32_t
  *
  *  rct2: 0x006BDC9A
  */
-void window_staff_list_scrollmousedown(rct_window* w, int32_t scrollIndex, ScreenCoordsXY screenCoords)
+void window_staff_list_scrollmousedown(rct_window* w, int32_t scrollIndex, const ScreenCoordsXY& screenCoords)
 {
     int32_t i, spriteIndex;
     Peep* peep;
@@ -488,7 +487,7 @@ void window_staff_list_scrollmousedown(rct_window* w, int32_t scrollIndex, Scree
  *
  *  rct2: 0x006BDC6B
  */
-void window_staff_list_scrollmouseover(rct_window* w, int32_t scrollIndex, ScreenCoordsXY screenCoords)
+void window_staff_list_scrollmouseover(rct_window* w, int32_t scrollIndex, const ScreenCoordsXY& screenCoords)
 {
     int32_t i;
 
@@ -570,8 +569,8 @@ void window_staff_list_paint(rct_window* w, rct_drawpixelinfo* dpi)
         (window_staff_list_widgets[WIDX_STAFF_LIST_HANDYMEN_TAB].left
          + window_staff_list_widgets[WIDX_STAFF_LIST_HANDYMEN_TAB].right)
                 / 2
-            + w->x,
-        window_staff_list_widgets[WIDX_STAFF_LIST_HANDYMEN_TAB].bottom - 6 + w->y, 0);
+            + w->windowPos.x,
+        window_staff_list_widgets[WIDX_STAFF_LIST_HANDYMEN_TAB].bottom - 6 + w->windowPos.y, 0);
 
     // Mechanic tab image
     i = (selectedTab == 1 ? (w->list_information_type & ~3) : 0);
@@ -582,8 +581,8 @@ void window_staff_list_paint(rct_window* w, rct_drawpixelinfo* dpi)
         (window_staff_list_widgets[WIDX_STAFF_LIST_MECHANICS_TAB].left
          + window_staff_list_widgets[WIDX_STAFF_LIST_MECHANICS_TAB].right)
                 / 2
-            + w->x,
-        window_staff_list_widgets[WIDX_STAFF_LIST_MECHANICS_TAB].bottom - 6 + w->y, 0);
+            + w->windowPos.x,
+        window_staff_list_widgets[WIDX_STAFF_LIST_MECHANICS_TAB].bottom - 6 + w->windowPos.y, 0);
 
     // Security tab image
     i = (selectedTab == 2 ? (w->list_information_type & ~3) : 0);
@@ -594,13 +593,13 @@ void window_staff_list_paint(rct_window* w, rct_drawpixelinfo* dpi)
         (window_staff_list_widgets[WIDX_STAFF_LIST_SECURITY_TAB].left
          + window_staff_list_widgets[WIDX_STAFF_LIST_SECURITY_TAB].right)
                 / 2
-            + w->x,
-        window_staff_list_widgets[WIDX_STAFF_LIST_SECURITY_TAB].bottom - 6 + w->y, 0);
+            + w->windowPos.x,
+        window_staff_list_widgets[WIDX_STAFF_LIST_SECURITY_TAB].bottom - 6 + w->windowPos.y, 0);
 
     rct_drawpixelinfo sprite_dpi;
     if (clip_drawpixelinfo(
-            &sprite_dpi, dpi, window_staff_list_widgets[WIDX_STAFF_LIST_ENTERTAINERS_TAB].left + w->x + 1,
-            window_staff_list_widgets[WIDX_STAFF_LIST_ENTERTAINERS_TAB].top + w->y + 1,
+            &sprite_dpi, dpi, window_staff_list_widgets[WIDX_STAFF_LIST_ENTERTAINERS_TAB].left + w->windowPos.x + 1,
+            window_staff_list_widgets[WIDX_STAFF_LIST_ENTERTAINERS_TAB].top + w->windowPos.y + 1,
             window_staff_list_widgets[WIDX_STAFF_LIST_ENTERTAINERS_TAB].right
                 - window_staff_list_widgets[WIDX_STAFF_LIST_ENTERTAINERS_TAB].left - 1,
             window_staff_list_widgets[WIDX_STAFF_LIST_ENTERTAINERS_TAB].bottom
@@ -615,14 +614,15 @@ void window_staff_list_paint(rct_window* w, rct_drawpixelinfo* dpi)
     if (!(gParkFlags & PARK_FLAGS_NO_MONEY))
     {
         set_format_arg(0, money32, gStaffWageTable[selectedTab]);
-        gfx_draw_string_left(dpi, STR_COST_PER_MONTH, gCommonFormatArgs, COLOUR_BLACK, w->x + w->width - 155, w->y + 0x20);
+        gfx_draw_string_left(
+            dpi, STR_COST_PER_MONTH, gCommonFormatArgs, COLOUR_BLACK, w->windowPos.x + w->width - 155, w->windowPos.y + 0x20);
     }
 
     if (selectedTab < 3)
     {
         gfx_draw_string_left(
-            dpi, STR_UNIFORM_COLOUR, w, COLOUR_BLACK, w->x + 6,
-            window_staff_list_widgets[WIDX_STAFF_LIST_UNIFORM_COLOUR_PICKER].top + w->y + 1);
+            dpi, STR_UNIFORM_COLOUR, w, COLOUR_BLACK, w->windowPos.x + 6,
+            window_staff_list_widgets[WIDX_STAFF_LIST_UNIFORM_COLOUR_PICKER].top + w->windowPos.y + 1);
     }
 
     int32_t staffTypeStringId = StaffNamingConvention[selectedTab].plural;
@@ -636,8 +636,8 @@ void window_staff_list_paint(rct_window* w, rct_drawpixelinfo* dpi)
     set_format_arg(2, rct_string_id, staffTypeStringId);
 
     gfx_draw_string_left(
-        dpi, STR_STAFF_LIST_COUNTER, gCommonFormatArgs, COLOUR_BLACK, w->x + 4,
-        window_staff_list_widgets[WIDX_STAFF_LIST_LIST].bottom + w->y + 2);
+        dpi, STR_STAFF_LIST_COUNTER, gCommonFormatArgs, COLOUR_BLACK, w->windowPos.x + 4,
+        window_staff_list_widgets[WIDX_STAFF_LIST_LIST].bottom + w->windowPos.y + 2);
 }
 
 /** rct2: 0x00992A08 */

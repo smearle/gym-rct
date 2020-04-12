@@ -35,6 +35,13 @@
 #include "world/Park.h"
 #include "world/Scenery.h"
 
+#include "Cheats.h"
+#include "actions/SetCheatAction.hpp"
+#include "actions/RideCreateAction.hpp"
+#include "actions/FootpathPlaceAction.hpp"
+#include "actions/PlaceParkEntranceAction.hpp"
+#include "actions/LandSetHeightAction.hpp"
+
 #include <algorithm>
 
 using namespace OpenRCT2;
@@ -73,6 +80,11 @@ void GameState::InitAll(int32_t mapSize)
     context_broadcast_intent(&intent);
 
     load_palette();
+
+    // FIXME: Why doesn't this work?
+    gParkFlags |= PARK_FLAGS_NO_MONEY;
+  //auto setCheatAction = SetCheatAction();
+  //auto result3 = GameAction::Execute(&setCheatAction);
 }
 
 /**
@@ -81,9 +93,52 @@ void GameState::InitAll(int32_t mapSize)
  * when operating as a client it may run multiple updates to catch up with the server tick,
  * another influence can be the game speed setting.
  */
+int act_i = 0;
 void GameState::Update()
 {
+    // AGENT TESTING
+    // FIXME: remove this
+    gCash = 1000000;
+    int x_tiles = 256 * 5;
+    int y_tiles = 256 * 5;
+    int ax = rand() % x_tiles;
+    int ay = rand() % y_tiles;
+    int az = rand() % 140 + 2;
+    // The default height
+  //int az = 115;
+  //GetContext()->WriteLine(std::to_string(ax));
+  //GetContext()->WriteLine(std::to_string(ay));
+  //GetContext()->WriteLine(std::to_string(az));
+  //int32_t selectedType;
+  //selectedType = (gFootpathSelectedType << 7) + (gFootpathSelectedId & 0xFF);
+
+    if (act_i == 0) {
+    }
+    auto rideCreateAction = RideCreateAction(0, 3, 1, 1);
+  //auto result2 = GameActions::Execute(&rideCreateAction);
+    auto footpathPlaceAction = FootpathPlaceAction({ax,ay,az}, 0, 0);
+    auto landSetHeightAction = LandSetHeightAction({ax, ay}, az, 0);
+    auto result2 = GameActions::Execute(&landSetHeightAction);
+    rideCreateAction.SetCallback([](const GameAction* ga, const GameActionResult* result) {
+        if (result->Error == GA_ERROR::OK)
+        {
+            // Don't play sound if it is no cost to prevent multiple sounds. TODO: make this work in no money scenarios
+            if (result->Cost != 0)
+            {
+                audio_play_sound_at_location(SoundId::PlaceItem, result->Position);
+            }
+        }
+        else
+        {
+          //_footpathErrorOccured = true;
+        }
+    });
+  //window_maze_construction_open();
+  //auto result = GameActions::Execute(&footpathPlaceAction);
     gInUpdateCode = true;
+  //GetContext()->WriteLine(std::to_string(*result));
+    // END AGENT TESTING //
+
 
     // Normal game play will update only once every GAME_UPDATE_TIME_MS
     uint32_t numUpdates = 1;

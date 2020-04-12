@@ -29,7 +29,7 @@ DEFINE_GAME_ACTION(BannerSetStyleAction, GAME_COMMAND_SET_BANNER_STYLE, GameActi
 {
 private:
     uint8_t _type = static_cast<uint8_t>(BannerSetStyleType::Count);
-    uint8_t _bannerIndex = BANNER_INDEX_NULL;
+    BannerIndex _bannerIndex = BANNER_INDEX_NULL;
     uint8_t _parameter;
 
 public:
@@ -66,9 +66,8 @@ public:
         auto banner = GetBanner(_bannerIndex);
 
         res->Expenditure = ExpenditureType::Landscaping;
-        res->Position.x = banner->position.x * 32 + 16;
-        res->Position.y = banner->position.y * 32 + 16;
-        res->Position.z = tile_element_height(res->Position);
+        auto location = banner->position.ToCoordsXY().ToTileCentre();
+        res->Position = { location, tile_element_height(location) };
 
         TileElement* tileElement = banner_get_tile_element(_bannerIndex);
 
@@ -116,9 +115,8 @@ public:
         auto banner = GetBanner(_bannerIndex);
 
         res->Expenditure = ExpenditureType::Landscaping;
-        res->Position.x = banner->position.x * 32 + 16;
-        res->Position.y = banner->position.y * 32 + 16;
-        res->Position.z = tile_element_height(res->Position);
+        auto location = banner->position.ToCoordsXY().ToTileCentre();
+        res->Position = { location, tile_element_height(location) };
 
         TileElement* tileElement = banner_get_tile_element(_bannerIndex);
 

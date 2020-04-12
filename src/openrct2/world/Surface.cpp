@@ -36,14 +36,14 @@ void SurfaceElement::SetEdgeStyle(uint32_t newStyle)
     EdgeStyle = newStyle;
 }
 
-uint32_t SurfaceElement::GetWaterHeight() const
+int32_t SurfaceElement::GetWaterHeight() const
 {
-    return WaterHeight;
+    return WaterHeight * 16;
 }
 
-void SurfaceElement::SetWaterHeight(uint32_t newWaterHeight)
+void SurfaceElement::SetWaterHeight(int32_t newWaterHeight)
 {
-    WaterHeight = newWaterHeight;
+    WaterHeight = newWaterHeight / 16;
 }
 
 bool SurfaceElement::CanGrassGrow() const
@@ -72,7 +72,7 @@ void SurfaceElement::SetGrassLength(uint8_t newLength)
     GrassLength = newLength;
 }
 
-void SurfaceElement::SetGrassLengthAndInvalidate(uint8_t length, CoordsXY coords)
+void SurfaceElement::SetGrassLengthAndInvalidate(uint8_t length, const CoordsXY& coords)
 {
     uint8_t oldLength = GrassLength & 0x7;
     uint8_t newLength = length & 0x7;
@@ -100,7 +100,7 @@ void SurfaceElement::SetGrassLengthAndInvalidate(uint8_t length, CoordsXY coords
  *
  *  rct2: 0x006647A1
  */
-void SurfaceElement::UpdateGrassLength(CoordsXY coords)
+void SurfaceElement::UpdateGrassLength(const CoordsXY& coords)
 {
     // Check if tile is grass
     if (!CanGrassGrow())
@@ -109,8 +109,7 @@ void SurfaceElement::UpdateGrassLength(CoordsXY coords)
     uint8_t grassLengthTmp = GrassLength & 7;
 
     // Check if grass is underwater or outside park
-    uint32_t waterHeight = GetWaterHeight() * 2;
-    if (waterHeight > base_height || !map_is_location_in_park(coords))
+    if (GetWaterHeight() > GetBaseZ() || !map_is_location_in_park(coords))
     {
         if (grassLengthTmp != GRASS_LENGTH_CLEAR_0)
             SetGrassLengthAndInvalidate(GRASS_LENGTH_CLEAR_0, coords);

@@ -17,7 +17,6 @@
 #include "../audio/audio.h"
 #include "../core/Console.hpp"
 #include "../core/Imaging.h"
-#include "../core/Optional.hpp"
 #include "../drawing/Drawing.h"
 #include "../drawing/X8DrawingEngine.h"
 #include "../localisation/Localisation.h"
@@ -33,6 +32,7 @@
 #include <chrono>
 #include <cstdlib>
 #include <memory>
+#include <optional>
 #include <string>
 
 using namespace std::literals::string_literals;
@@ -135,7 +135,7 @@ static std::string screenshot_get_formatted_date_time()
     return formatted;
 }
 
-static opt::optional<std::string> screenshot_get_next_path()
+static std::optional<std::string> screenshot_get_next_path()
 {
     auto screenshotDirectory = screenshot_get_directory();
     if (!platform_ensure_directory_exists(screenshotDirectory.c_str()))
@@ -173,7 +173,7 @@ std::string screenshot_dump_png(rct_drawpixelinfo* dpi)
     // Get a free screenshot path
     auto path = screenshot_get_next_path();
 
-    if (path == opt::nullopt)
+    if (path == std::nullopt)
     {
         return "";
     }
@@ -193,7 +193,7 @@ std::string screenshot_dump_png_32bpp(int32_t width, int32_t height, const void*
 {
     auto path = screenshot_get_next_path();
 
-    if (path == opt::nullopt)
+    if (path == std::nullopt)
     {
         return "";
     }
@@ -289,7 +289,7 @@ static CoordsXY GetEdgeTile(int32_t mapSize, int32_t rotation, EdgeType edgeType
     }
 }
 
-static int32_t GetHighestBaseClearanceZ(CoordsXY location)
+static int32_t GetHighestBaseClearanceZ(const CoordsXY& location)
 {
     int32_t z = 0;
     auto element = map_get_first_element_at(location);
@@ -348,7 +348,7 @@ static void ReleaseDPI(rct_drawpixelinfo& dpi)
     dpi.height = 0;
 }
 
-static rct_viewport GetGiantViewport(int32_t mapSize, int32_t rotation, int32_t zoom)
+static rct_viewport GetGiantViewport(int32_t mapSize, int32_t rotation, ZoomLevel zoom)
 {
     // Get the tile coordinates of each corner
     auto leftTileCoords = GetEdgeTile(mapSize, rotation, EdgeType::LEFT, false);
@@ -367,12 +367,11 @@ static rct_viewport GetGiantViewport(int32_t mapSize, int32_t rotation, int32_t 
     int32_t bottom = translate_3d_to_2d_with_z(rotation, CoordsXYZ(bottomTileCoords, 0)).y;
 
     rct_viewport viewport{};
-    viewport.view_x = left;
-    viewport.view_y = top;
+    viewport.viewPos = { left, top };
     viewport.view_width = right - left;
     viewport.view_height = bottom - top;
-    viewport.width = viewport.view_width >> zoom;
-    viewport.height = viewport.view_height >> zoom;
+    viewport.width = viewport.view_width / zoom;
+    viewport.height = viewport.view_height / zoom;
     viewport.zoom = zoom;
     return viewport;
 }
@@ -398,13 +397,13 @@ void screenshot_giant()
     try
     {
         auto path = screenshot_get_next_path();
-        if (path == opt::nullopt)
+        if (path == std::nullopt)
         {
             throw std::runtime_error("Giant screenshot failed, unable to find a suitable destination path.");
         }
 
         int32_t rotation = get_current_rotation();
-        int32_t zoom = 0;
+        ZoomLevel zoom = 0;
 
         auto mainWindow = window_get_main();
         auto vp = window_get_viewport(mainWindow);
@@ -464,7 +463,7 @@ static void benchgfx_render_screenshots(const char* inputPath, std::unique_ptr<I
 
     // Create Viewport and DPI for every rotation and zoom.
     constexpr int32_t MAX_ROTATIONS = 4;
-
+    constexpr int32_t MAX_ZOOM_LEVEL = 3;
     std::array<rct_drawpixelinfo, MAX_ROTATIONS * MAX_ZOOM_LEVEL> dpis;
     std::array<rct_viewport, MAX_ROTATIONS * MAX_ZOOM_LEVEL> viewports;
 
@@ -726,15 +725,14 @@ int32_t cmdline_for_screenshot(const char** argv, int32_t argc, ScreenshotOption
 
                 auto coords2d = translate_3d_to_2d_with_z(customRotation, coords3d);
 
-                viewport.view_x = coords2d.x - ((viewport.view_width << customZoom) / 2);
-                viewport.view_y = coords2d.y - ((viewport.view_height << customZoom) / 2);
+                viewport.viewPos = { coords2d.x - ((viewport.view_width << customZoom) / 2),
+                                     coords2d.y - ((viewport.view_height << customZoom) / 2) };
                 viewport.zoom = customZoom;
                 gCurrentRotation = customRotation;
             }
             else
             {
-                viewport.view_x = gSavedViewX - (viewport.view_width / 2);
-                viewport.view_y = gSavedViewY - (viewport.view_height / 2);
+                viewport.viewPos = { gSavedView - ScreenCoordsXY{ (viewport.view_width / 2), (viewport.view_height / 2) } };
                 viewport.zoom = gSavedViewZoom;
                 gCurrentRotation = gSavedViewRotation;
             }

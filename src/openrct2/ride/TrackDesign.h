@@ -47,11 +47,11 @@ struct TrackDesignSceneryElement
  * Track design structure.
  */
 
-/* Track Element entry  size: 0x02 */
+/* Track Element entry  size: 0x03 */
 struct TrackDesignTrackElement
 {
-    uint8_t type;  // 0x00
-    uint8_t flags; // 0x01
+    track_type_t type; // 0x00
+    uint8_t flags;     // 0x02
 };
 
 /* Maze Element entry   size: 0x04 */
@@ -218,7 +218,8 @@ void track_design_save_init();
 void track_design_save_reset_scenery();
 bool track_design_save_contains_tile_element(const TileElement* tileElement);
 void track_design_save_select_nearby_scenery(ride_id_t rideIndex);
-void track_design_save_select_tile_element(int32_t interactionType, CoordsXY loc, TileElement* tileElement, bool collect);
+void track_design_save_select_tile_element(
+    int32_t interactionType, const CoordsXY& loc, TileElement* tileElement, bool collect);
 
 bool track_design_are_entrance_and_exit_placed();
 

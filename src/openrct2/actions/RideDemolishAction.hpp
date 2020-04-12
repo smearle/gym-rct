@@ -32,7 +32,7 @@ using namespace OpenRCT2;
 DEFINE_GAME_ACTION(RideDemolishAction, GAME_COMMAND_DEMOLISH_RIDE, GameActionResult)
 {
 private:
-    NetworkRideId_t _rideIndex{ -1 };
+    NetworkRideId_t _rideIndex{ RideIdNewNull };
     uint8_t _modifyType = RIDE_MODIFY_DEMOLISH;
 
 public:
@@ -241,11 +241,8 @@ private:
 
         if (!ride->overall_view.isNull())
         {
-            int32_t x = (ride->overall_view.x * 32) + 16;
-            int32_t y = (ride->overall_view.y * 32) + 16;
-            int32_t z = tile_element_height({ x, y });
-
-            res->Position = { x, y, z };
+            auto xy = ride->overall_view.ToTileCentre();
+            res->Position = { xy, tile_element_height(xy) };
         }
 
         ride->Delete();
@@ -300,19 +297,16 @@ private:
             if (it.element->GetType() != TILE_ELEMENT_TYPE_TRACK)
                 continue;
 
-            if (it.element->AsTrack()->GetRideIndex() != (ride_idnew_t)_rideIndex)
+            if (it.element->AsTrack()->GetRideIndex() != (ride_id_t)_rideIndex)
                 continue;
 
-            int32_t x = it.x * 32, y = it.y * 32;
-            int32_t z = it.element->GetBaseZ();
-
-            uint8_t rotation = it.element->GetDirection();
-            uint8_t type = it.element->AsTrack()->GetTrackType();
+            auto location = CoordsXYZD(
+                TileCoordsXY(it.x, it.y).ToCoordsXY(), it.element->GetBaseZ(), it.element->GetDirection());
+            auto type = it.element->AsTrack()->GetTrackType();
 
             if (type != TRACK_ELEM_MAZE)
             {
-                auto trackRemoveAction = TrackRemoveAction(
-                    type, it.element->AsTrack()->GetSequenceIndex(), { x, y, z, rotation });
+                auto trackRemoveAction = TrackRemoveAction(type, it.element->AsTrack()->GetSequenceIndex(), location);
                 trackRemoveAction.SetFlags(GAME_COMMAND_FLAG_NO_SPEND);
 
                 auto removRes = GameActions::ExecuteNested(&trackRemoveAction);
@@ -340,7 +334,7 @@ private:
             for (Direction dir : ALL_DIRECTIONS)
             {
                 const CoordsXY& off = DirOffsets[dir];
-                money32 removePrice = MazeRemoveTrack(x + off.x, y + off.y, z, dir);
+                money32 removePrice = MazeRemoveTrack(location.x + off.x, location.y + off.y, location.z, dir);
                 if (removePrice != MONEY32_UNDEFINED)
                     refundPrice += removePrice;
                 else
@@ -369,11 +363,8 @@ private:
 
         if (!ride->overall_view.isNull())
         {
-            int32_t x = (ride->overall_view.x * 32) + 16;
-            int32_t y = (ride->overall_view.y * 32) + 16;
-            int32_t z = tile_element_height({ x, y });
-
-            res->Position = { x, y, z };
+            auto location = ride->overall_view.ToTileCentre();
+            res->Position = { location, tile_element_height(location) };
         }
 
         window_close_by_number(WC_DEMOLISH_RIDE_PROMPT, _rideIndex);

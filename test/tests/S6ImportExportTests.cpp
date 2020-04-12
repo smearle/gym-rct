@@ -127,7 +127,7 @@ static void AdvanceGameTicks(uint32_t ticks, std::unique_ptr<IContext>& context)
 
 #define COMPARE_FIELD(field) EXPECT_EQ(left.field, right.field)
 
-static void CompareSpriteDataCommon(const rct_sprite_common& left, const rct_sprite_common& right)
+static void CompareSpriteDataCommon(const SpriteBase& left, const SpriteBase& right)
 {
     COMPARE_FIELD(sprite_identifier);
     COMPARE_FIELD(type);
@@ -155,9 +155,9 @@ static void CompareSpriteDataCommon(const rct_sprite_common& left, const rct_spr
 
 static void CompareSpriteDataPeep(const Peep& left, const Peep& right)
 {
-    COMPARE_FIELD(next_x);
-    COMPARE_FIELD(next_y);
-    COMPARE_FIELD(next_z);
+    COMPARE_FIELD(NextLoc.x);
+    COMPARE_FIELD(NextLoc.y);
+    COMPARE_FIELD(NextLoc.z);
     COMPARE_FIELD(next_flags);
     COMPARE_FIELD(outside_of_park);
     COMPARE_FIELD(state);
@@ -269,7 +269,7 @@ static void CompareSpriteDataPeep(const Peep& left, const Peep& right)
     COMPARE_FIELD(item_standard_flags);
 }
 
-static void CompareSpriteDataVehicle(const rct_vehicle& left, const rct_vehicle& right)
+static void CompareSpriteDataVehicle(const Vehicle& left, const Vehicle& right)
 {
     COMPARE_FIELD(vehicle_sprite_type);
     COMPARE_FIELD(bank_rotation);
@@ -282,9 +282,9 @@ static void CompareSpriteDataVehicle(const rct_vehicle& left, const rct_vehicle&
     COMPARE_FIELD(colours.trim_colour);
     COMPARE_FIELD(track_progress);
     COMPARE_FIELD(track_direction);
-    COMPARE_FIELD(track_x);
-    COMPARE_FIELD(track_y);
-    COMPARE_FIELD(track_z);
+    COMPARE_FIELD(TrackLocation.x);
+    COMPARE_FIELD(TrackLocation.y);
+    COMPARE_FIELD(TrackLocation.z);
     COMPARE_FIELD(next_vehicle_on_train);
     COMPARE_FIELD(prev_vehicle_on_ride);
     COMPARE_FIELD(next_vehicle_on_ride);
@@ -329,7 +329,7 @@ static void CompareSpriteDataVehicle(const rct_vehicle& left, const rct_vehicle&
     COMPARE_FIELD(var_C8);
     COMPARE_FIELD(var_CA);
     COMPARE_FIELD(scream_sound_id);
-    COMPARE_FIELD(var_CD);
+    COMPARE_FIELD(TrackSubposition);
     COMPARE_FIELD(num_laps);
     COMPARE_FIELD(brake_speed);
     COMPARE_FIELD(lost_time_out);
@@ -343,17 +343,17 @@ static void CompareSpriteDataVehicle(const rct_vehicle& left, const rct_vehicle&
     COMPARE_FIELD(target_seat_rotation);
 }
 
-static void CompareSpriteDataLitter(const rct_litter& left, const rct_litter& right)
+static void CompareSpriteDataLitter(const Litter& left, const Litter& right)
 {
     COMPARE_FIELD(creationTick);
 }
 
-static void CompareSpriteDataSteamParticle(const rct_steam_particle& left, const rct_steam_particle& right)
+static void CompareSpriteDataSteamParticle(const SteamParticle& left, const SteamParticle& right)
 {
     COMPARE_FIELD(time_to_move);
 }
 
-static void CompareSpriteDataMoneyEffect(const rct_money_effect& left, const rct_money_effect& right)
+static void CompareSpriteDataMoneyEffect(const MoneyEffect& left, const MoneyEffect& right)
 {
     COMPARE_FIELD(move_delay);
     COMPARE_FIELD(num_movements);
@@ -363,8 +363,7 @@ static void CompareSpriteDataMoneyEffect(const rct_money_effect& left, const rct
     COMPARE_FIELD(wiggle);
 }
 
-static void CompareSpriteDataCrashedVehicleParticle(
-    const rct_crashed_vehicle_particle& left, const rct_crashed_vehicle_particle& right)
+static void CompareSpriteDataCrashedVehicleParticle(const VehicleCrashParticle& left, const VehicleCrashParticle& right)
 {
     COMPARE_FIELD(time_to_live);
     for (size_t i = 0; i < std::size(left.colour); i++)
@@ -389,14 +388,14 @@ static void CompareSpriteDataJumpingFountain(const JumpingFountain& left, const 
     COMPARE_FIELD(Iteration);
 }
 
-static void CompareSpriteDataBalloon(const rct_balloon& left, const rct_balloon& right)
+static void CompareSpriteDataBalloon(const Balloon& left, const Balloon& right)
 {
     COMPARE_FIELD(popped);
     COMPARE_FIELD(time_to_move);
     COMPARE_FIELD(colour);
 }
 
-static void CompareSpriteDataDuck(const rct_duck& left, const rct_duck& right)
+static void CompareSpriteDataDuck(const Duck& left, const Duck& right)
 {
     COMPARE_FIELD(target_x);
     COMPARE_FIELD(target_y);

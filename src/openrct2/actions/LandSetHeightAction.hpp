@@ -35,7 +35,7 @@ public:
     LandSetHeightAction()
     {
     }
-    LandSetHeightAction(CoordsXY coords, uint8_t height, uint8_t style)
+    LandSetHeightAction(const CoordsXY& coords, uint8_t height, uint8_t style)
         : _coords(coords)
         , _height(height)
         , _style(style)
@@ -84,8 +84,9 @@ public:
                 TileElement* tileElement = CheckTreeObstructions();
                 if (tileElement != nullptr)
                 {
-                    map_obstruction_set_error_text(tileElement);
-                    return std::make_unique<GameActionResult>(GA_ERROR::DISALLOWED, gGameCommandErrorText);
+                    auto res = MakeResult(GA_ERROR::DISALLOWED, STR_NONE);
+                    map_obstruction_set_error_text(tileElement, *res);
+                    return res;
                 }
             }
             sceneryRemovalCost = GetSmallSceneryRemovalCost();
@@ -117,8 +118,9 @@ public:
         TileElement* tileElement = CheckFloatingStructures(reinterpret_cast<TileElement*>(surfaceElement), _height);
         if (tileElement != nullptr)
         {
-            map_obstruction_set_error_text(tileElement);
-            return std::make_unique<GameActionResult>(GA_ERROR::DISALLOWED, gGameCommandErrorText);
+            auto res = MakeResult(GA_ERROR::DISALLOWED, STR_NONE);
+            map_obstruction_set_error_text(tileElement, *res);
+            return res;
         }
 
         if (!gCheatsDisableClearanceChecks)
@@ -133,8 +135,8 @@ public:
                 }
             }
             if (!map_can_construct_with_clear_at(
-                    { _coords, _height * 8, zCorner * 8 }, &map_set_land_height_clear_func, { 0b1111, 0 }, 0, nullptr,
-                    CREATE_CROSSING_MODE_NONE))
+                    { _coords, _height * COORDS_Z_STEP, zCorner * COORDS_Z_STEP }, &map_set_land_height_clear_func,
+                    { 0b1111, 0 }, 0, nullptr, CREATE_CROSSING_MODE_NONE))
             {
                 return std::make_unique<GameActionResult>(
                     GA_ERROR::DISALLOWED, STR_NONE, gGameCommandErrorText, gCommonFormatArgs);
@@ -143,8 +145,9 @@ public:
             tileElement = CheckUnremovableObstructions(reinterpret_cast<TileElement*>(surfaceElement), zCorner);
             if (tileElement != nullptr)
             {
-                map_obstruction_set_error_text(tileElement);
-                return std::make_unique<GameActionResult>(GA_ERROR::DISALLOWED, gGameCommandErrorText);
+                auto res = MakeResult(GA_ERROR::DISALLOWED, STR_NONE);
+                map_obstruction_set_error_text(tileElement, *res);
+                return res;
             }
         }
         auto res = std::make_unique<GameActionResult>();
@@ -318,7 +321,7 @@ private:
                         zCorner += 2;
                     }
                 }
-                if (zCorner > waterHeight * 2 - 2)
+                if (zCorner > (waterHeight / COORDS_Z_STEP) - 2)
                 {
                     return ++surfaceElement;
                 }
@@ -378,8 +381,8 @@ private:
         surfaceElement->base_height = _height;
         surfaceElement->clearance_height = _height;
         surfaceElement->AsSurface()->SetSlope(_style);
-        int32_t waterHeight = surfaceElement->AsSurface()->GetWaterHeight();
-        if (waterHeight != 0 && waterHeight <= _height / 2)
+        int32_t waterHeight = surfaceElement->AsSurface()->GetWaterHeight() / COORDS_Z_STEP;
+        if (waterHeight != 0 && waterHeight <= _height)
         {
             surfaceElement->AsSurface()->SetWaterHeight(0);
         }

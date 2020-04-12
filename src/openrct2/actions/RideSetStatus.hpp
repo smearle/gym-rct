@@ -31,7 +31,7 @@ static rct_string_id _StatusErrorTitles[] = {
 DEFINE_GAME_ACTION(RideSetStatusAction, GAME_COMMAND_SET_RIDE_STATUS, GameActionResult)
 {
 private:
-    NetworkRideId_t _rideIndex{ -1 };
+    NetworkRideId_t _rideIndex{ RideIdNewNull };
     uint8_t _status = RIDE_STATUS_CLOSED;
 
 public:
@@ -122,9 +122,8 @@ public:
         ride->FormatNameTo(res->ErrorMessageArgs.data() + 6);
         if (!ride->overall_view.isNull())
         {
-            res->Position.x = ride->overall_view.x * 32 + 16;
-            res->Position.y = ride->overall_view.y * 32 + 16;
-            res->Position.z = tile_element_height(res->Position);
+            auto location = ride->overall_view.ToTileCentre();
+            res->Position = { location, tile_element_height(res->Position) };
         }
 
         switch (_status)

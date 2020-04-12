@@ -43,13 +43,13 @@ private:
 public:
     LandBuyRightsAction() = default;
 
-    LandBuyRightsAction(MapRange range, LandBuyRightSetting setting)
+    LandBuyRightsAction(const MapRange& range, LandBuyRightSetting setting)
         : _range(range)
         , _setting(static_cast<uint8_t>(setting))
     {
     }
 
-    LandBuyRightsAction(CoordsXY coord, LandBuyRightSetting setting)
+    LandBuyRightsAction(const CoordsXY& coord, LandBuyRightSetting setting)
         : _range(coord.x, coord.y, coord.x, coord.y)
         , _setting(static_cast<uint8_t>(setting))
     {
@@ -117,7 +117,7 @@ private:
         return res;
     }
 
-    GameActionResult::Ptr map_buy_land_rights_for_tile(const CoordsXY loc, bool isExecuting) const
+    GameActionResult::Ptr map_buy_land_rights_for_tile(const CoordsXY& loc, bool isExecuting) const
     {
         if (_setting >= static_cast<uint8_t>(LandBuyRightSetting::Count))
         {

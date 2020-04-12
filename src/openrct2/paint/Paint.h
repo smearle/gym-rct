@@ -86,19 +86,15 @@ struct paint_struct
 assert_struct_size(paint_struct, 0x34);
 #endif
 
-/* size 0x1E */
 struct paint_string_struct
 {
     rct_string_id string_id;   // 0x00
     paint_string_struct* next; // 0x02
-    uint16_t x;                // 0x06
-    uint16_t y;                // 0x08
+    int32_t x;                 // 0x06
+    int32_t y;                 // 0x08
     uint32_t args[4];          // 0x0A
     uint8_t* y_offsets;        // 0x1A
 };
-#ifdef PLATFORM_32BIT
-assert_struct_size(paint_string_struct, 0x1e);
-#endif
 #pragma pack(pop)
 
 union paint_entry
@@ -178,8 +174,8 @@ extern paint_session gPaintSession;
 
 // Globals for paint clipping
 extern uint8_t gClipHeight;
-extern TileCoordsXY gClipSelectionA;
-extern TileCoordsXY gClipSelectionB;
+extern CoordsXY gClipSelectionA;
+extern CoordsXY gClipSelectionB;
 
 /** rct2: 0x00993CC4. The white ghost that indicates not-yet-built elements. */
 #define CONSTRUCTION_MARKER (COLOUR_DARK_GREEN << 19 | COLOUR_GREY << 24 | IMAGE_TYPE_REMAP)
@@ -228,7 +224,6 @@ paint_session* paint_session_alloc(rct_drawpixelinfo* dpi, uint32_t viewFlags);
 void paint_session_free(paint_session* session);
 void paint_session_generate(paint_session* session);
 void paint_session_arrange(paint_session* session);
-paint_struct* paint_arrange_structs_helper(paint_struct* ps_next, uint16_t quadrantIndex, uint8_t flag, uint8_t rotation);
 void paint_draw_structs(paint_session* session);
 void paint_draw_money_structs(rct_drawpixelinfo* dpi, paint_string_struct* ps);
 

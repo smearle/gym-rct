@@ -304,7 +304,7 @@ static void path_bit_benches_paint(
 static void path_bit_jumping_fountains_paint(
     paint_session* session, rct_scenery_entry* pathBitEntry, int32_t height, uint32_t pathBitImageFlags, rct_drawpixelinfo* dpi)
 {
-    if (dpi->zoom_level != 0)
+    if (dpi->zoom_level > 0)
         return;
 
     uint32_t imageId = pathBitEntry->image;
@@ -856,9 +856,7 @@ void path_paint(paint_session* session, uint16_t height, const TileElement* tile
         imageFlags |= CONSTRUCTION_MARKER;
     }
 
-    int16_t x = session->MapPosition.x, y = session->MapPosition.y;
-
-    auto surface = map_get_surface_element_at(CoordsXY{ session->MapPosition.x, session->MapPosition.y });
+    auto surface = map_get_surface_element_at(session->MapPosition);
 
     if (surface == nullptr)
     {
@@ -893,15 +891,12 @@ void path_paint(paint_session* session, uint16_t height, const TileElement* tile
         int32_t staffIndex = gStaffDrawPatrolAreas;
         uint8_t staffType = staffIndex & 0x7FFF;
         bool is_staff_list = staffIndex & 0x8000;
-        x = session->MapPosition.x;
-        y = session->MapPosition.y;
-
         uint8_t patrolColour = COLOUR_LIGHT_BLUE;
 
         if (!is_staff_list)
         {
             Staff* staff = (GET_PEEP(staffIndex))->AsStaff();
-            if (!staff->IsPatrolAreaSet({ x, y }))
+            if (!staff->IsPatrolAreaSet(session->MapPosition))
             {
                 patrolColour = COLOUR_GREY;
             }
@@ -935,7 +930,7 @@ void path_paint(paint_session* session, uint16_t height, const TileElement* tile
         sub_98196C(session, imageId, 16, 16, 1, 1, 0, heightMarkerBaseZ);
     }
 
-    PathSurfaceEntry* footpathEntry = tile_element->AsPath()->GetPathEntry();
+    PathSurfaceEntry* footpathEntry = tile_element->AsPath()->GetSurfaceEntry();
     PathRailingsEntry* railingEntry = tile_element->AsPath()->GetRailingEntry();
 
     if (footpathEntry != nullptr && railingEntry != nullptr)

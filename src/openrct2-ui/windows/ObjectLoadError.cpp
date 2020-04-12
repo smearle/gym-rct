@@ -11,10 +11,10 @@
 #include <openrct2-ui/interface/Widget.h>
 #include <openrct2-ui/windows/Window.h>
 #include <openrct2/Context.h>
+#include <openrct2/core/Http.h>
 #include <openrct2/core/Json.hpp>
 #include <openrct2/core/String.hpp>
 #include <openrct2/localisation/Localisation.h>
-#include <openrct2/network/Http.h>
 #include <openrct2/object/ObjectList.h>
 #include <openrct2/object/ObjectManager.h>
 #include <openrct2/object/ObjectRepository.h>
@@ -151,7 +151,6 @@ private:
 
     void DownloadObject(const rct_object_entry& entry, const std::string name, const std::string url)
     {
-        using namespace OpenRCT2::Networking;
         try
         {
             std::printf("Downloading %s\n", url.c_str());
@@ -190,8 +189,6 @@ private:
 
     void NextDownload()
     {
-        using namespace OpenRCT2::Networking;
-
         if (!_downloadingObjects || _currentDownloadIndex >= _entries.size())
         {
             // Finished...
@@ -291,8 +288,8 @@ static void window_object_load_error_close(rct_window *w);
 static void window_object_load_error_update(rct_window *w);
 static void window_object_load_error_mouseup(rct_window *w, rct_widgetindex widgetIndex);
 static void window_object_load_error_scrollgetsize(rct_window *w, int32_t scrollIndex, int32_t *width, int32_t *height);
-static void window_object_load_error_scrollmouseover(rct_window *w, int32_t scrollIndex, ScreenCoordsXY screenCoords);
-static void window_object_load_error_scrollmousedown(rct_window *w, int32_t scrollIndex, ScreenCoordsXY screenCoords);
+static void window_object_load_error_scrollmouseover(rct_window *w, int32_t scrollIndex, const ScreenCoordsXY& screenCoords);
+static void window_object_load_error_scrollmousedown(rct_window *w, int32_t scrollIndex, const ScreenCoordsXY& screenCoords);
 static void window_object_load_error_paint(rct_window *w, rct_drawpixelinfo *dpi);
 static void window_object_load_error_scrollpaint(rct_window *w, rct_drawpixelinfo *dpi, int32_t scrollIndex);
 #ifndef DISABLE_HTTP
@@ -349,8 +346,7 @@ static bool _updatedListAfterDownload;
 static rct_string_id get_object_type_string(const rct_object_entry* entry)
 {
     rct_string_id result;
-    uint8_t objectType = object_entry_get_type(entry);
-    switch (objectType)
+    switch (entry->GetType())
     {
         case OBJECT_TYPE_RIDE:
             result = STR_OBJECT_SELECTION_RIDE_VEHICLES_ATTRACTIONS;
@@ -519,7 +515,7 @@ static void window_object_load_error_mouseup(rct_window* w, rct_widgetindex widg
     }
 }
 
-static void window_object_load_error_scrollmouseover(rct_window* w, int32_t scrollIndex, ScreenCoordsXY screenCoords)
+static void window_object_load_error_scrollmouseover(rct_window* w, int32_t scrollIndex, const ScreenCoordsXY& screenCoords)
 {
     // Highlight item that the cursor is over, or remove highlighting if none
     int32_t selected_item;
@@ -545,7 +541,7 @@ static void window_object_load_error_select_element_from_list(rct_window* w, int
     widget_invalidate(w, WIDX_SCROLL);
 }
 
-static void window_object_load_error_scrollmousedown(rct_window* w, int32_t scrollIndex, ScreenCoordsXY screenCoords)
+static void window_object_load_error_scrollmousedown(rct_window* w, int32_t scrollIndex, const ScreenCoordsXY& screenCoords)
 {
     int32_t selected_item;
     selected_item = screenCoords.y / SCROLLABLE_ROW_HEIGHT;
@@ -563,12 +559,14 @@ static void window_object_load_error_paint(rct_window* w, rct_drawpixelinfo* dpi
 
     // Draw explanatory message
     set_format_arg(0, rct_string_id, STR_OBJECT_ERROR_WINDOW_EXPLANATION);
-    gfx_draw_string_left_wrapped(dpi, gCommonFormatArgs, w->x + 5, w->y + 18, WW - 10, STR_BLACK_STRING, COLOUR_BLACK);
+    gfx_draw_string_left_wrapped(
+        dpi, gCommonFormatArgs, w->windowPos.x + 5, w->windowPos.y + 18, WW - 10, STR_BLACK_STRING, COLOUR_BLACK);
 
     // Draw file name
     set_format_arg(0, rct_string_id, STR_OBJECT_ERROR_WINDOW_FILE);
     set_format_arg(2, utf8*, file_path.c_str());
-    gfx_draw_string_left_clipped(dpi, STR_BLACK_STRING, gCommonFormatArgs, COLOUR_BLACK, w->x + 5, w->y + 43, WW - 5);
+    gfx_draw_string_left_clipped(
+        dpi, STR_BLACK_STRING, gCommonFormatArgs, COLOUR_BLACK, w->windowPos.x + 5, w->windowPos.y + 43, WW - 5);
 }
 
 static void window_object_load_error_scrollpaint(rct_window* w, rct_drawpixelinfo* dpi, int32_t scrollIndex)

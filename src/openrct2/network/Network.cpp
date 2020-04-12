@@ -31,7 +31,7 @@
 // This string specifies which version of network stream current build uses.
 // It is used for making sure only compatible builds get connected, even within
 // single OpenRCT2 version.
-#define NETWORK_STREAM_VERSION "8"
+#define NETWORK_STREAM_VERSION "2"
 #define NETWORK_STREAM_ID OPENRCT2_VERSION "-" NETWORK_STREAM_VERSION
 
 static Peep* _pickup_peep = nullptr;
@@ -2726,7 +2726,7 @@ bool Network::LoadMap(IStream* stream)
         [[maybe_unused]] uint32_t checksum = stream->ReadValue<uint32_t>();
 
         // Read other data not in normal save files
-        stream->Read(gSpriteSpatialIndex, 0x10001 * sizeof(uint16_t));
+        stream->Read(gSpriteSpatialIndex, SPATIAL_INDEX_SIZE * sizeof(uint16_t));
         gGamePaused = stream->ReadValue<uint32_t>();
         _guestGenerationProbability = stream->ReadValue<uint32_t>();
         _suggestedGuestMaximum = stream->ReadValue<uint32_t>();
@@ -2775,7 +2775,7 @@ bool Network::SaveMap(IStream* stream, const std::vector<const ObjectRepositoryI
         s6exporter->SaveGame(stream);
 
         // Write other data not in normal save files
-        stream->Write(gSpriteSpatialIndex, 0x10001 * sizeof(uint16_t));
+        stream->Write(gSpriteSpatialIndex, SPATIAL_INDEX_SIZE * sizeof(uint16_t));
         stream->WriteValue<uint32_t>(gGamePaused);
         stream->WriteValue<uint32_t>(_guestGenerationProbability);
         stream->WriteValue<uint32_t>(_suggestedGuestMaximum);
@@ -3293,7 +3293,7 @@ CoordsXYZ network_get_player_last_action_coord(uint32_t index)
     return gNetwork.player_list[index]->LastActionCoord;
 }
 
-void network_set_player_last_action_coord(uint32_t index, CoordsXYZ coord)
+void network_set_player_last_action_coord(uint32_t index, const CoordsXYZ& coord)
 {
     if (index < gNetwork.player_list.size())
     {
@@ -3951,7 +3951,7 @@ CoordsXYZ network_get_player_last_action_coord(uint32_t index)
 {
     return { 0, 0, 0 };
 }
-void network_set_player_last_action_coord(uint32_t index, CoordsXYZ coord)
+void network_set_player_last_action_coord(uint32_t index, const CoordsXYZ& coord)
 {
 }
 uint32_t network_get_player_commands_ran(uint32_t index)

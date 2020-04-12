@@ -43,6 +43,8 @@ namespace OpenRCT2
         void Update();
         void UpdateLogic();
 
+        void FootPathPlaceAction();
+
     private:
         void CreateStateSnapshot();
     };
