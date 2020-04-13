@@ -35,14 +35,28 @@
 #include "world/Park.h"
 #include "world/Scenery.h"
 
+#include <algorithm>
+
+//#include "windows/Intent.h"
+// AGENT
+#include "interface/Window.h"
 #include "Cheats.h"
 #include "actions/RideCreateAction.hpp"
 #include "actions/FootpathPlaceAction.hpp"
 #include "actions/PlaceParkEntranceAction.hpp"
 #include "actions/LandSetHeightAction.hpp"
 #include "actions/MazeSetTrackAction.hpp"
-
-#include <algorithm>
+#include "actions/WaterSetHeightAction.hpp"
+#include "actions/TrackPlaceAction.hpp"
+#include "actions/TrackDesignAction.h"
+#include "ride/RideData.h"
+#include "ride/RideGroupManager.h"
+#include "ride/ShopItem.h"
+#include "ride/Station.h"
+#include "ride/Track.h"
+#include "ride/TrackData.h"
+#include "ride/TrackDesign.h"
+#include 
 
 using namespace OpenRCT2;
 
@@ -84,7 +98,7 @@ void GameState::InitAll(int32_t mapSize)
     // FIXME: Why doesn't this work?
     gParkFlags |= PARK_FLAGS_NO_MONEY;
   //auto setCheatAction = SetCheatAction();
-  //auto result3 = GameAction::Execute(&setCheatAction);
+  //auto result3 = GameActions::Execute(&setCheatAction);
 }
 
 /**
@@ -93,18 +107,19 @@ void GameState::InitAll(int32_t mapSize)
  * when operating as a client it may run multiple updates to catch up with the server tick,
  * another influence can be the game speed setting.
  */
-int act_i = 0;
+RideManager ride_manager = GetRideManager();
+int num_actions = 4;
+int act_i = 3;
 void GameState::Update()
 {
+
     // AGENT TESTING
     // FIXME: remove this cash-reload
     gCash = 1000000;
-    int x_tiles = gParkSize * 2;
-    GetContext()->WriteLine(std::to_string(gParkSize));
-    int y_tiles = gParkSize * 2;
+    int x_tiles = gMapSizeUnits;
+    int y_tiles = gMapSizeUnits;
     int ax = rand() % x_tiles;
     int ay = rand() % y_tiles;
-    int az = rand() % 140 + 2;
     // The default height
   //int az = 115;
   //GetContext()->WriteLine(std::to_string(ax));
@@ -114,28 +129,45 @@ void GameState::Update()
   //selectedType = (gFootpathSelectedType << 7) + (gFootpathSelectedId & 0xFF);
 
     if (act_i == 0) {
+        int az = rand() % MAXIMUM_LAND_HEIGHT + MINIMUM_LAND_HEIGHT;
+        auto landSetHeightAction = LandSetHeightAction({ax, ay}, az, 0);
+      //auto result_height = GameActions::Execute(&landSetHeightAction);
     }
-    auto rideCreateAction = RideCreateAction(0, 3, 1, 1);
-  //auto result_ride = GameActions::Execute(&rideCreateAction);
-    auto footpathPlaceAction = FootpathPlaceAction({ax,ay,az}, 0, 0);
-    auto landSetHeightAction = LandSetHeightAction({ax, ay}, az, 0);
-    auto result_height = GameActions::Execute(&landSetHeightAction);
-  //rideCreateAction.SetCallback([](const GameAction* ga, const GameActionResult* result) {
-  //    if (result->Error == GA_ERROR::OK)
-  //    {
-  //        // Don't play sound if it is no cost to prevent multiple sounds. TODO: make this work in no money scenarios
-  //        if (result->Cost != 0)
-  //        {
-  //            audio_play_sound_at_location(SoundId::PlaceItem, result->Position);
-  //        }
-  //    }
-  //    else
-  //    {
-  //      //_footpathErrorOccured = true;
-  //    }
-  //});
+    if (act_i == 1) {
+        int az = rand() % MAXIMUM_WATER_HEIGHT + MINIMUM_WATER_HEIGHT;
+        auto waterHeightAction = WaterSetHeightAction({ax, ay}, az);
+      //auto result_water = GameActions::Execute(&waterHeightAction);
+                }
+    if (act_i == 2) {
+        int az = rand() % MAXIMUM_LAND_HEIGHT + MINIMUM_LAND_HEIGHT;
+        auto footpathPlaceAction = FootpathPlaceAction({ax,ay,az}, 0, 0);
+      //auto result_footpath = GameActions::Execute(&footpathPlaceAction);
+                }
+    if (act_i == 3) {
+
+        rct_string_id td = TrackDesign::CreateTrackDesign(ride);
+        auto trackDesignAction = TrackDesignAction({ax, ay, az, 0}, td);
+        auto result_track = GameActions::Execute(&trackDesignAction);
+      //int az = rand() % MAXIMUM_LAND_HEIGHT + MINIMUM_LAND_HEIGHT;
+      //int32_t* trackType = 0;
+      //int32_t* trackDirection = 0;
+      //ride_id_t* rideIndex = &_currentRideIndex;
+      //int32_t* _liftHillAndAlternativeState = 0;
+      //int32_t* properties = 0;
+      //window_ride_construction_update_state(
+      //trackType, trackDirection, rideIndex, _liftHillAndAlternativeState, &ax,
+      //&ay, &az, properties);
+
+      //int32_t ride_type = 1;
+      //auto rideCreateAction = RideCreateAction(ride_type, 3, 0, 0);
+      //auto result_ride = GameActions::Execute(&rideCreateAction);
+      //int az = rand() % MAXIMUM_LAND_HEIGHT + MINIMUM_LAND_HEIGHT;
+      //ride_id_t rideIndex = _currentRideIndex;
+      //auto trackPlaceAction = TrackPlaceAction(rideIndex, 76, {ax, ay, 112, 0}, 0, 0, 0, 0, 0);
+      //auto result_track = GameActions::Execute(&trackPlaceAction);
+    }
+    act_i = (act_i + 1) % num_actions;
   //window_maze_construction_open();
-  //auto result = GameActions::Execute(&footpathPlaceAction);
     gInUpdateCode = true;
   //GetContext()->WriteLine(std::to_string(*result));
     // END AGENT TESTING //
