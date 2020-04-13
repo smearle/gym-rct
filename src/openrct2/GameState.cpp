@@ -39,7 +39,6 @@
 
 //#include "windows/Intent.h"
 // AGENT
-#include "interface/Window.h"
 #include "Cheats.h"
 #include "actions/RideCreateAction.hpp"
 #include "actions/FootpathPlaceAction.hpp"
@@ -56,7 +55,7 @@
 #include "ride/Track.h"
 #include "ride/TrackData.h"
 #include "ride/TrackDesign.h"
-#include 
+#include "interface/Window.h"
 
 using namespace OpenRCT2;
 
@@ -144,10 +143,26 @@ void GameState::Update()
       //auto result_footpath = GameActions::Execute(&footpathPlaceAction);
                 }
     if (act_i == 3) {
-
-        rct_string_id td = TrackDesign::CreateTrackDesign(ride);
-        auto trackDesignAction = TrackDesignAction({ax, ay, az, 0}, td);
-        auto result_track = GameActions::Execute(&trackDesignAction);
+        ride_list_item *listItem = new ride_list_item();
+        uint8_t ride_type_i;
+        uint8_t entry_i;
+        uint8_t track_i = 76;
+        for (ride_type_i = 15; ride_type_i < 16; ride_type_i ++){
+            for (entry_i = 0; entry_i < 1; entry_i ++) {
+                listItem->type = 28;
+                listItem->entry_index = 3;
+                ride_construct_new(*listItem);
+              //auto ride = get_ride(_currentRideIndex);
+              //rct_string_id td = TrackDesign::CreateTrackDesign(ride);
+                auto trackPlaceAction = TrackPlaceAction(_currentRideIndex, track_i, {ax, ay, 112, 0}, 0, 0, 4, 0, false);
+                auto result_track = GameActions::Execute(&trackPlaceAction);
+               //FIXME: Why is this function undeclared?
+                //Window::window_ride_construction_keyboard_shortcut_build_current();
+            }
+        }
+      //rct_string_id td = TrackDesign::CreateTrackDesign(ride);
+      //auto trackDesignAction = TrackDesignAction({ax, ay, az, 0}, td);
+      //auto result_track = GameActions::Execute(&trackDesignAction);
       //int az = rand() % MAXIMUM_LAND_HEIGHT + MINIMUM_LAND_HEIGHT;
       //int32_t* trackType = 0;
       //int32_t* trackDirection = 0;
@@ -162,11 +177,9 @@ void GameState::Update()
       //auto rideCreateAction = RideCreateAction(ride_type, 3, 0, 0);
       //auto result_ride = GameActions::Execute(&rideCreateAction);
       //int az = rand() % MAXIMUM_LAND_HEIGHT + MINIMUM_LAND_HEIGHT;
-      //ride_id_t rideIndex = _currentRideIndex;
-      //auto trackPlaceAction = TrackPlaceAction(rideIndex, 76, {ax, ay, 112, 0}, 0, 0, 0, 0, 0);
-      //auto result_track = GameActions::Execute(&trackPlaceAction);
     }
-    act_i = (act_i + 1) % num_actions;
+    act_i = (act_i + 1);
+  //act_i = (act_i + 1) % num_actions;
   //window_maze_construction_open();
     gInUpdateCode = true;
   //GetContext()->WriteLine(std::to_string(*result));
