@@ -884,6 +884,7 @@ namespace OpenRCT2
             _accumulator = std::min(_accumulator + elapsed, static_cast<uint32_t>(GAME_UPDATE_MAX_THRESHOLD));
 
             _uiContext->ProcessMessages();
+			
 
             if (_accumulator < GAME_UPDATE_TIME_MS)
             {
@@ -960,6 +961,13 @@ namespace OpenRCT2
 
         void Update()
         {
+			// BEGIN AGENT
+		////ride_list_item *listItem = new ride_list_item();
+		////listItem->type = 28;
+		////listItem->entry_index = 3;
+		////ride_construct_new(*listItem);
+		////context_input_handle_keyboard(5);
+			// END AGENT
             uint32_t currentUpdateTime = platform_get_ticks();
 
             gCurrentDeltaTime = std::min<uint32_t>(currentUpdateTime - _lastUpdateTime, 500);

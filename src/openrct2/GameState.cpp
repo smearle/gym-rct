@@ -109,6 +109,7 @@ void GameState::InitAll(int32_t mapSize)
 RideManager ride_manager = GetRideManager();
 int num_actions = 4;
 int act_i = 3;
+uint8_t track_i = 76;
 void GameState::Update()
 {
 
@@ -143,23 +144,32 @@ void GameState::Update()
       //auto result_footpath = GameActions::Execute(&footpathPlaceAction);
                 }
     if (act_i == 3) {
-        ride_list_item *listItem = new ride_list_item();
-        uint8_t ride_type_i;
-        uint8_t entry_i;
-        uint8_t track_i = 76;
-        for (ride_type_i = 15; ride_type_i < 16; ride_type_i ++){
-            for (entry_i = 0; entry_i < 1; entry_i ++) {
-                listItem->type = 28;
-                listItem->entry_index = 3;
-                ride_construct_new(*listItem);
-              //auto ride = get_ride(_currentRideIndex);
-              //rct_string_id td = TrackDesign::CreateTrackDesign(ride);
-                auto trackPlaceAction = TrackPlaceAction(_currentRideIndex, track_i, {ax, ay, 112, 0}, 0, 0, 4, 0, false);
-                auto result_track = GameActions::Execute(&trackPlaceAction);
-               //FIXME: Why is this function undeclared?
-                //Window::window_ride_construction_keyboard_shortcut_build_current();
+      //uint8_t ride_type_i;
+      //uint8_t entry_i;
+      //ScreenCoordsXY cursor_pos = {0,0};
+      //context_set_cursor_position(cursor_pos);
+      //ride_list_item *listItem = new ride_list_item();
+      //listItem->type = 28;
+      //listItem->entry_index = 3;
+      //ride_construct_new(*listItem);
+      //gScreenFlags = 68;
+      //auto ride = get_ride(_currentRideIndex);
+      //rct_string_id td = TrackDesign::CreateTrackDesign(ride);
+      //auto trackPlaceAction = TrackPlaceAction();
+      //auto trackPlaceAction = TrackPlaceAction(_currentRideIndex, track_i, {ax, ay, 136, 0}, 0, 0, 4, 0, false);
+      //auto result_track = GameActions::Execute(&trackPlaceAction);
+      //for (track_i = 0; track_i < 200; track_i ++) {
+
+      //auto trackPlaceAction2 = TrackPlaceAction(_currentRideIndex, track_i, {ax, ay, 136, 0}, 0, 0, 4, 0, false);
+      //auto result_track2 = GameActions::Execute(&trackPlaceAction2);
+      //}
+      //window_close_construction_windows();
+      //track_i += 1;
+        
+       //FIXME: Why is this function undeclared?
+        //Window::window_ride_construction_keyboard_shortcut_build_current();
             }
-        }
+        
       //rct_string_id td = TrackDesign::CreateTrackDesign(ride);
       //auto trackDesignAction = TrackDesignAction({ax, ay, az, 0}, td);
       //auto result_track = GameActions::Execute(&trackDesignAction);
@@ -177,9 +187,9 @@ void GameState::Update()
       //auto rideCreateAction = RideCreateAction(ride_type, 3, 0, 0);
       //auto result_ride = GameActions::Execute(&rideCreateAction);
       //int az = rand() % MAXIMUM_LAND_HEIGHT + MINIMUM_LAND_HEIGHT;
-    }
-    act_i = (act_i + 1);
-  //act_i = (act_i + 1) % num_actions;
+    
+  //act_i = (act_i + 1);
+    act_i = (act_i + 1) % num_actions;
   //window_maze_construction_open();
     gInUpdateCode = true;
   //GetContext()->WriteLine(std::to_string(*result));

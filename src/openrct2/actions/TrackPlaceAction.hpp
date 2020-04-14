@@ -187,8 +187,10 @@ public:
         {
             if ((_origin.z & 0x0F) != 8)
             {
+                log_warning("Before bug");
                 return std::make_unique<TrackPlaceActionResult>(GA_ERROR::INVALID_PARAMETERS, STR_CONSTRUCTION_ERR_UNKNOWN);
             }
+        log_warning("Beyond bug");
         }
         else
         {

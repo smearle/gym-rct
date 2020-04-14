@@ -43,6 +43,13 @@
 #include <openrct2/ui/WindowManager.h>
 #include <vector>
 
+//AGENT
+#include <Agent.h>
+#include <openrct2/ride/Ride.h>
+#include <openrct2/interface/Window.h>
+#include <openrct2/interface/Cursors.h>
+//END AGENT
+
 using namespace OpenRCT2;
 using namespace OpenRCT2::Drawing;
 using namespace OpenRCT2::Input;
@@ -117,6 +124,24 @@ public:
 
     void Update() override
     {
+        //AGENT
+        Agent agent = Agent();
+        agent.Step();
+        int screen_x = GetWidth();
+        int screen_y = GetHeight();
+        screen_x = rand() % screen_x;
+        screen_y = rand() % screen_y;
+        log_warning("in ui context");
+        ride_list_item *listItem = new ride_list_item();
+        // Burger Stall
+        listItem->type = 28;
+        listItem->entry_index = 3;
+        ride_construct_new(*listItem);
+        ScreenCoordsXY screenCoords = ScreenCoordsXY({screen_x, screen_y});
+        _cursorState.position = screenCoords;
+        keyboard_shortcut_handle_command(SHORTCUT_RIDE_CONSTRUCTION_BUILD_CURRENT);
+        window_close_all_except_class(WC_RIDE_CONSTRUCTION);
+        //AGENT END
         _inGameConsole.Update();
     }
 
