@@ -125,6 +125,9 @@ public:
     int mouse_i;
     int act_i;
     int key_i;
+    int build_i;
+    int subbuild_i;
+    bool first = true;
     void Update() override
     {
         //AGENT
@@ -136,29 +139,54 @@ public:
         act_i = actions[0];
         screen_x = actions[1];
         screen_y = actions[2];
-        ScreenCoordsXY screenCoords = ScreenCoordsXY({screen_x, screen_y});
-        _cursorState.position = screenCoords;
+        if (screen_x == -1) {}
+        else {
+            ScreenCoordsXY screenCoords = ScreenCoordsXY({screen_x, screen_y});
+            _cursorState.position = screenCoords;
+        };
+        if (mouse_i == 1) {
+            _cursorState.left = 1;
+        };
         key_i = actions[3];
         mouse_i = actions[4];
-
-        keyboard_shortcut_handle_command(key_i);
-        if (act_i == 0) {
-        }
+        build_i = actions[5];
+        subbuild_i = actions[6];
+        if (key_i == 0) {}
+        else {
+            keyboard_shortcut_handle_command(key_i - 1);
+        };
+        
         if (act_i == 1) {
-            ride_list_item *listItem = new ride_list_item();
-            // Burger Stall
-            listItem->type = 28;
-            listItem->entry_index = 3;
-            ride_construct_new(*listItem);
+            if (first) {
+                ScreenCoordsXY screenCoords2 = ScreenCoordsXY({500, 500});
+                _cursorState.position = screenCoords2;
+                ride_list_item *listItem = new ride_list_item();
+                listItem->type = build_i;
+                listItem->entry_index = subbuild_i;
+                ride_construct_new(*listItem);
+                first = false;
+                window_ride_construction_keyboard_shortcut_turn_left();
+                window_ride_construction_keyboard_shortcut_build_current();
+                _cursorState.left = 1;
+                window_ride_construction_keyboard_shortcut_next_track();
+                window_ride_construction_keyboard_shortcut_turn_left();
+                keyboard_shortcut_handle_command(SHORTCUT_RIDE_CONSTRUCTION_BUILD_CURRENT);
+                window_update_all();
+            }
+          //window_ride_construction_keyboard_shortcut_next_track();
+            window_ride_construction_keyboard_shortcut_build_current();
         }
-        if (act_i == 2) {
-            ride_list_item *listItem = new ride_list_item();
-            // Burger Stall
-            listItem->type = 0;
-            listItem->entry_index = 3;
-            ride_construct_new(*listItem);
+        if (act_i ==2) {
+            window_ride_construction_keyboard_shortcut_turn_left();
         }
-        store_mouse_input(mouse_i, screenCoords);
+        if (act_i == 3) {
+            window_ride_construction_keyboard_shortcut_turn_right();
+        }
+        if (act_i == 4) {
+            window_ride_construction_keyboard_shortcut_use_track_default();
+        }
+
+
         //window_close_all_except_class(WC_RIDE_CONSTRUCTION);
         //AGENT END
         _inGameConsole.Update();
