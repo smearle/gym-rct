@@ -44,7 +44,7 @@
 #include <vector>
 
 //AGENT
-#include <Agent.h>
+#include <rct2env/Agent.h>
 #include <openrct2/ride/Ride.h>
 #include <openrct2/interface/Window.h>
 #include <openrct2/interface/Cursors.h>

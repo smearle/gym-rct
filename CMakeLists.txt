@@ -260,6 +260,9 @@ include("${ROOT_DIR}/src/openrct2-cli/CMakeLists.txt" NO_POLICY_SCOPE)
 if(NOT DISABLE_GUI)
     include("${ROOT_DIR}/src/openrct2-ui/CMakeLists.txt" NO_POLICY_SCOPE)
 endif()
+# AGENT
+include ("${ROOT_DIR}/src/rct2env/CMakeLists.txt" NO_POLICY_SCOPE)
+# END AGENT
 
 # g2
 add_custom_command(
@@ -325,6 +328,7 @@ if(NOT DISABLE_GUI)
     install(TARGETS "openrct2" RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
 endif()
 install(TARGETS "openrct2-cli" OPTIONAL RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
+install(TARGETS "rct2env" OPTIONAL RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/g2.dat" DESTINATION "${CMAKE_INSTALL_DATADIR}/openrct2")
 install(DIRECTORY "data/" DESTINATION "${CMAKE_INSTALL_DATADIR}/openrct2")
 install(FILES ${DOC_FILES} DESTINATION "${CMAKE_INSTALL_DOCDIR}")
