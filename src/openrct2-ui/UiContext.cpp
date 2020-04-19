@@ -122,25 +122,44 @@ public:
         delete _platformUiContext;
     }
 
+    int mouse_i;
+    int act_i;
+    int key_i;
     void Update() override
     {
         //AGENT
-        Agent agent = Agent();
-        agent.Step();
         int screen_x = GetWidth();
         int screen_y = GetHeight();
-        screen_x = rand() % screen_x;
-        screen_y = rand() % screen_y;
-        log_warning("in ui context");
-        ride_list_item *listItem = new ride_list_item();
-        // Burger Stall
-        listItem->type = 28;
-        listItem->entry_index = 3;
-        ride_construct_new(*listItem);
+        Agent agent = Agent();
+        agent.Configure(screen_x, screen_y);
+        int* actions = agent.Step();
+        act_i = actions[0];
+        screen_x = actions[1];
+        screen_y = actions[2];
         ScreenCoordsXY screenCoords = ScreenCoordsXY({screen_x, screen_y});
         _cursorState.position = screenCoords;
-        keyboard_shortcut_handle_command(SHORTCUT_RIDE_CONSTRUCTION_BUILD_CURRENT);
-        window_close_all_except_class(WC_RIDE_CONSTRUCTION);
+        key_i = actions[3];
+        mouse_i = actions[4];
+
+        keyboard_shortcut_handle_command(key_i);
+        if (act_i == 0) {
+        }
+        if (act_i == 1) {
+            ride_list_item *listItem = new ride_list_item();
+            // Burger Stall
+            listItem->type = 28;
+            listItem->entry_index = 3;
+            ride_construct_new(*listItem);
+        }
+        if (act_i == 2) {
+            ride_list_item *listItem = new ride_list_item();
+            // Burger Stall
+            listItem->type = 0;
+            listItem->entry_index = 3;
+            ride_construct_new(*listItem);
+        }
+        store_mouse_input(mouse_i, screenCoords);
+        //window_close_all_except_class(WC_RIDE_CONSTRUCTION);
         //AGENT END
         _inGameConsole.Update();
     }
