@@ -71,6 +71,7 @@ ipo_set_target_properties(${PROJECT})
 
 target_link_libraries(${PROJECT} torch ${TORCH_LIBRARIES})
 target_link_libraries(${PROJECT} torch ${TORCH_LIBRARIES})
+target_link_libraries(${PROJECT} torch ${TORCH_LIBRARIES})
 target_link_libraries(${PROJECT} "libopenrct2"
                                  "${CMAKE_CURRENT_LIST_DIR}/../../../pytorch-cpp-rl/build/libcpprl.a"
                                  ${SDL2_LDFLAGS}
