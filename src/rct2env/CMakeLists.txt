@@ -69,6 +69,8 @@ add_executable(${PROJECT} ${RCT2ENV_SOURCES} ${RCT2ENV_MM_SOURCES})
 SET_CHECK_CXX_FLAGS(${PROJECT})
 ipo_set_target_properties(${PROJECT})
 
+target_link_libraries(${PROJECT} torch ${TORCH_LIBRARIES})
+target_link_libraries(${PROJECT} torch ${TORCH_LIBRARIES})
 target_link_libraries(${PROJECT} "libopenrct2"
                                  "${CMAKE_CURRENT_LIST_DIR}/../../../pytorch-cpp-rl/build/libcpprl.a"
                                  ${SDL2_LDFLAGS}
@@ -88,12 +90,14 @@ endif ()
 # Includes
 target_include_directories(${PROJECT} PRIVATE "${CMAKE_CURRENT_LIST_DIR}/.."
                                               ${SPEEX_INCLUDE_DIRS}
-                                              ${TORCH_INCLUDE_DIRS})
-target_include_directories(${PROJECT} PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../openrct2-ui"
+                                              ${TORCH_INCLUDE_DIRS}
+                                              "${CMAKE_CURRENT_LIST_DIR}/../openrct2-ui"
                                               "${CMAKE_CURRENT_LIST_DIR}/../../../pytorch-cpp-rl/include"
+                                              "${CMAKE_CURRENT_LIST_DIR}/../../../pytorch-cpp-rl/example/lib/spdlog/include"
                                               "${CMAKE_CURRENT_LIST_DIR}/../../../pytorch-cpp-rl/example/lib/spdlog/include"
                                               ${SPEEX_INCLUDE_DIRS})
 target_include_directories(${PROJECT} SYSTEM PRIVATE ${SDL2_INCLUDE_DIRS})
+
 
 # Compiler flags
 if (WIN32)

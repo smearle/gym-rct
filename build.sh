@@ -1,6 +1,6 @@
 mkdir build
 cd build
-cmake ../
-make -j8 &&\
+cmake -DCMAKE_PREFIX_PATH="/home/sme/libtorch" ../
+make -j15 &&\
 #DESTDIR=. make install
 sudo make install
