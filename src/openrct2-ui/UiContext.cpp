@@ -130,64 +130,64 @@ public:
     bool first = true;
     void Update() override
     {
-        //AGENT
-        int screen_x = GetWidth();
-        int screen_y = GetHeight();
-        Agent agent = Agent();
-        agent.Configure(screen_x, screen_y);
-        int* actions = agent.Step();
-        act_i = actions[0];
-        screen_x = actions[1];
-        screen_y = actions[2];
-        if (screen_x == -1) {}
-        else {
-            ScreenCoordsXY screenCoords = ScreenCoordsXY({screen_x, screen_y});
-            _cursorState.position = screenCoords;
-        };
-        if (mouse_i == 1) {
-            _cursorState.left = 1;
-        };
-        key_i = actions[3];
-        mouse_i = actions[4];
-        build_i = actions[5];
-        subbuild_i = actions[6];
-        if (key_i == 0) {}
-        else {
-            keyboard_shortcut_handle_command(key_i - 1);
-        };
-        
-        if (act_i == 1) {
-            if (first) {
-                ScreenCoordsXY screenCoords2 = ScreenCoordsXY({500, 500});
-                _cursorState.position = screenCoords2;
-                ride_list_item *listItem = new ride_list_item();
-                listItem->type = build_i;
-                listItem->entry_index = subbuild_i;
-                ride_construct_new(*listItem);
-                first = false;
-                window_ride_construction_keyboard_shortcut_turn_left();
-                window_ride_construction_keyboard_shortcut_build_current();
-                _cursorState.left = 1;
-                window_ride_construction_keyboard_shortcut_next_track();
-                window_ride_construction_keyboard_shortcut_turn_left();
-                keyboard_shortcut_handle_command(SHORTCUT_RIDE_CONSTRUCTION_BUILD_CURRENT);
-                window_update_all();
-            }
-          //window_ride_construction_keyboard_shortcut_next_track();
-            window_ride_construction_keyboard_shortcut_build_current();
-        }
-        if (act_i ==2) {
-            window_ride_construction_keyboard_shortcut_turn_left();
-        }
-        if (act_i == 3) {
-            window_ride_construction_keyboard_shortcut_turn_right();
-        }
-        if (act_i == 4) {
-            window_ride_construction_keyboard_shortcut_use_track_default();
-        }
+//      //AGENT
+//      int screen_x = GetWidth();
+//      int screen_y = GetHeight();
+//      Agent agent = Agent();
+//      agent.Configure(screen_x, screen_y);
+//      int* actions = agent.Step();
+//      act_i = actions[0];
+//      screen_x = actions[1];
+//      screen_y = actions[2];
+//      if (screen_x == -1) {}
+//      else {
+//          ScreenCoordsXY screenCoords = ScreenCoordsXY({screen_x, screen_y});
+//          _cursorState.position = screenCoords;
+//      };
+//      if (mouse_i == 1) {
+//          _cursorState.left = 1;
+//      };
+//      key_i = actions[3];
+//      mouse_i = actions[4];
+//      build_i = actions[5];
+//      subbuild_i = actions[6];
+//      if (key_i == 0) {}
+//      else {
+//          keyboard_shortcut_handle_command(key_i - 1);
+//      };
+//      
+//      if (act_i == 1) {
+//          if (first) {
+//           // ScreenCoordsXY screenCoords2 = ScreenCoordsXY({500, 500});
+//           // _cursorState.position = screenCoords2;
+//              ride_list_item *listItem = new ride_list_item();
+//              listItem->type = build_i;
+//              listItem->entry_index = subbuild_i;
+//              ride_construct_new(*listItem);
+//              first = false;
+//              window_ride_construction_keyboard_shortcut_turn_left();
+//              window_ride_construction_keyboard_shortcut_build_current();
+//              _cursorState.left = 1;
+//              window_ride_construction_keyboard_shortcut_next_track();
+//              window_ride_construction_keyboard_shortcut_turn_left();
+//              keyboard_shortcut_handle_command(SHORTCUT_RIDE_CONSTRUCTION_BUILD_CURRENT);
+//              window_update_all();
+//          }
+//        //window_ride_construction_keyboard_shortcut_next_track();
+//          window_ride_construction_keyboard_shortcut_build_current();
+//      }
+//      if (act_i ==2) {
+//          window_ride_construction_keyboard_shortcut_turn_left();
+//      }
+//      if (act_i == 3) {
+//          window_ride_construction_keyboard_shortcut_turn_right();
+//      }
+//      if (act_i == 4) {
+//          window_ride_construction_keyboard_shortcut_use_track_default();
+//      }
 
 
-        //window_close_all_except_class(WC_RIDE_CONSTRUCTION);
+//      //window_close_all_except_class(WC_RIDE_CONSTRUCTION);
         //AGENT END
         _inGameConsole.Update();
     }
