@@ -86,7 +86,6 @@ std::vector<float> flatten_vector(std::vector<std::vector<T>> const &input)
     return output;
 }
 
-
 template<typename T> static std::shared_ptr<T> to_shared(std::unique_ptr<T>&& src)
 {
     return std::shared_ptr<T>(std::move(src));
@@ -95,8 +94,8 @@ template<typename T> static std::shared_ptr<T> to_shared(std::unique_ptr<T>&& sr
 
 RCT2Env make_env(int argc, const char** argv)
 {
-    RCT2Env env = RCT2Env();
-	env.Init(argc, argv);
+    RCT2Env env;
+    env.Init(argc, argv);
     return env;
 }
 
@@ -120,7 +119,7 @@ int train(int argc, const char **argv) {
     torch::Device device = use_cuda ? torch::kCUDA : torch::kCPU;
 
     spdlog::info("Launching an RCT2 env");
-    auto env = make_env(argc, argv); 
+    RCT2Env env = make_env(argc, argv); 
 
     auto env_info = env.GetInfo();
     spdlog::info("Action space: {} - [{}]", env_info.action_space_type,

@@ -1,3 +1,11 @@
+# gym-rct
+A fork of OpenRCT2, slightly modded to allow for an AI agent to interface with player controls (and other elements of the game's API).
+
+## Installation
+
+* Install [pytorch-cpp-rl](https://github.com/Omegastick/pytorch-cpp-rl). Add libtorch to your `LD_LIBRARY_PATH`.
+* `sh build.sh`
+
 # OpenRCT2
 An open-source re-implementation of RollerCoaster Tycoon 2. A construction and management simulation video game that simulates amusement park management.
 

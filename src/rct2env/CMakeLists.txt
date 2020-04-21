@@ -5,6 +5,10 @@ if (CMAKE_BINARY_DIR STREQUAL CMAKE_SOURCE_DIR)
     message(FATAL_ERROR "Building in-source is not supported! Create a build dir and remove ${CMAKE_SOURCE_DIR}/CMakeCache.txt")
 endif ()
 
+set(CMAKE_CXX_STANDARD 17)
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
+
 # Options
 option(DISABLE_OPENGL "Disable OpenGL support.")
 
@@ -19,6 +23,7 @@ else ()
     PKG_CHECK_MODULES(SPEEX REQUIRED speexdsp)
 endif ()
 
+
 # Dependencies
 ## PyTorch
 if (NOT TORCH_FOUND)
@@ -27,6 +32,12 @@ if (NOT TORCH_FOUND)
         set(CMAKE_CXX_FLAGS ${TORCH_CXX_FLAGS})
     endif()
 endif (NOT TORCH_FOUND)
+message(${TORCH_FOUND})
+message(${TORCH_CXX_FLAGS})
+message(${TORCH_LIBRARIES})
+message(${TORCH_INCLUDE_DIRS})
+message(${SDL2_INCLUDE_DIRS})
+#find_package(Torch REQUIRED)
 
 if (NOT DISABLE_OPENGL)
     # GL doesn't work nicely with macOS, while find_package doesn't work with multiarch on Ubuntu.
@@ -56,6 +67,9 @@ file(GLOB_RECURSE RCT2ENV_HEADERS
 list(REMOVE_ITEM RCT2ENV_HEADERS
     "${CMAKE_CURRENT_LIST_DIR}/../openrct2-ui/UiContext.h"
     )
+list(REMOVE_ITEM TORCH_INCLUDE_DIRS
+    "/home/sme/libtorch/lib/libc10.so"
+    )
 
 if (APPLE)
     file(GLOB_RECURSE RCT2ENV_MM_SOURCES "${CMAKE_CURRENT_LIST_DIR}/*.mm")
@@ -69,7 +83,6 @@ add_executable(${PROJECT} ${RCT2ENV_SOURCES} ${RCT2ENV_MM_SOURCES})
 SET_CHECK_CXX_FLAGS(${PROJECT})
 ipo_set_target_properties(${PROJECT})
 
-target_link_libraries(${PROJECT} torch ${TORCH_LIBRARIES})
 target_link_libraries(${PROJECT} torch ${TORCH_LIBRARIES})
 target_link_libraries(${PROJECT} torch ${TORCH_LIBRARIES})
 target_link_libraries(${PROJECT} "libopenrct2"
