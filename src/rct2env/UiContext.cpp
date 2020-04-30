@@ -8,6 +8,7 @@
  *****************************************************************************/
 
 #include "UiContext.h"
+#include "Context.h"
 
 #include "../openrct2-ui/CursorRepository.h"
 #include "../openrct2-ui/SDLException.h"
@@ -26,7 +27,7 @@
 #include <cstdlib>
 #include <memory>
 #include <openrct2-ui/interface/Window.h>
-#include <openrct2/Context.h>
+//#include <openrct2/Context.h>
 #include <openrct2/Input.h>
 #include <openrct2/Version.h>
 #include <openrct2/audio/AudioMixer.h>

@@ -56,7 +56,7 @@ const bool use_lr_decay = false;
 const float value_loss_coef = 0.5;
 
 // Environment hyperparameters
-const std::string env_name = "LunarLander-v2";
+const std::string env_name = "RCT2Env-v0";
 const int num_envs = 8;
 const float render_reward_threshold = 160;
 
