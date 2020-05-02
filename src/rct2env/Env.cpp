@@ -41,7 +41,7 @@ void RCT2Env::Init(int argc, const char** argv)
             auto uiContext = to_shared(CreateUiContext(env));
             context = CreateContext(env, audioContext, uiContext);
         }
-      //rc = context->RunOpenRCT2(argc, argv);
+      rc = context->RunOpenRCT2(argc, argv);
     }
     else if (runGame == EXITCODE_FAIL)
     {

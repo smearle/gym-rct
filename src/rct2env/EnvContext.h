@@ -1,5 +1,6 @@
-#include <openrct2/Context.h>
+#include "../openrct2/Context.h"
 
-class EnvContext : public Context
+namespace OpenRCT2
 {
-	public
+class EnvContext;
+}
