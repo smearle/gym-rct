@@ -8,7 +8,7 @@
  *****************************************************************************/
 
 #include "UiContext.h"
-#include "EnvContext.h"
+#include "../openrct2/Context.h"
 
 #include "../openrct2-ui/CursorRepository.h"
 #include "../openrct2-ui/SDLException.h"

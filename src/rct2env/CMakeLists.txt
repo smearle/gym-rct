@@ -53,6 +53,7 @@ endif ()
 file(GLOB_RECURSE RCT2ENV_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/*.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../openrct2-ui/*.cpp"
+   #"${CMAKE_CURRENT_LIST_DIR}/../openrct2/*.cpp"
    )
 list(REMOVE_ITEM RCT2ENV_SOURCES 
     "${CMAKE_CURRENT_LIST_DIR}/../openrct2-ui/Ui.cpp"
@@ -67,9 +68,9 @@ file(GLOB_RECURSE RCT2ENV_HEADERS
 list(REMOVE_ITEM RCT2ENV_HEADERS
     "${CMAKE_CURRENT_LIST_DIR}/../openrct2-ui/UiContext.h"
     )
-list(REMOVE_ITEM TORCH_INCLUDE_DIRS
-    "/home/sme/libtorch/lib/libc10.so"
-    )
+#list(REMOVE_ITEM TORCH_INCLUDE_DIRS
+#    "/home/sme/libtorch/lib/libc10.so"
+#    )
 
 if (APPLE)
     file(GLOB_RECURSE RCT2ENV_MM_SOURCES "${CMAKE_CURRENT_LIST_DIR}/*.mm")
@@ -111,6 +112,7 @@ target_include_directories(${PROJECT} PRIVATE "${CMAKE_CURRENT_LIST_DIR}/.."
                                               "${CMAKE_CURRENT_LIST_DIR}/../../../pytorch-cpp-rl/example/lib/spdlog/include"
                                               ${SPEEX_INCLUDE_DIRS})
 target_include_directories(${PROJECT} SYSTEM PRIVATE ${SDL2_INCLUDE_DIRS})
+include_directories (/usr/include/freetype2)
 
 
 # Compiler flags

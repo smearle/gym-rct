@@ -23,6 +23,7 @@ namespace OpenRCT2::Ui
 	//RCT2Env(const RCT2Env&) = delete;
 			void Init(int argc, const char** argv);
 			EnvInfo GetInfo();
+			void Step();
 			torch::Tensor* Step(int* actions_tensor);
 	};
 }

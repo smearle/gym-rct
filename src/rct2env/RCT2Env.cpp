@@ -131,6 +131,9 @@ int train(int argc, const char **argv) {
 //  auto reset_param = std::make_shared<ResetParam>();
 //  Request<ResetParam> reset_request("reset", reset_param);
 //  communicator.send_request(reset_request);
+    while (true) {
+        env.Step();
+    }
 
 //  auto observation_shape = env_info->observation_space_shape;
 //  observation_shape.insert(observation_shape.begin(), num_envs);

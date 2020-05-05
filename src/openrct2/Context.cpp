@@ -835,17 +835,22 @@ namespace OpenRCT2
 
 #ifndef __EMSCRIPTEN__
             _variableFrame = ShouldRunVariableFrame();
-            do
-            {
+          //do
+          //{
                 RunFrame();
-            } while (!_finished);
+                RunFrame();
+                RunFrame();
+                RunFrame();
+                RunFrame();
+                RunFrame();
+          //} while (!_finished);
 #else
-            emscripten_set_main_loop_arg(
-                [](void* vctx) -> {
-                    auto ctx = reinterpret_cast<Context*>(vctx);
-                    ctx->RunFrame();
-                },
-                this, 0, 1);
+      //    emscripten_set_main_loop_arg(
+      //        [](void* vctx) -> {
+      //            auto ctx = reinterpret_cast<Context*>(vctx);
+      //            ctx->RunFrame();
+      //        },
+      //        this, 0, 1);
 #endif // __EMSCRIPTEN__
             log_verbose("finish openrct2 loop");
         }

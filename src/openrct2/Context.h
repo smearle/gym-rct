@@ -129,6 +129,8 @@ namespace OpenRCT2
         virtual void Finish() abstract;
         virtual void Quit() abstract;
 
+		virtual void RunFrame() abstract;
+
         /**
          * This is deprecated, use IPlatformEnvironment.
          */
