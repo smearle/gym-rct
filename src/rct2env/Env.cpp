@@ -2,6 +2,8 @@
 #include <openrct2-ui/audio/AudioContext.h>
 #include "../openrct2-ui/drawing/BitmapReader.h"
 
+#include <openrct2/drawing/Drawing.h>
+#include <openrct2/drawing/IDrawingEngine.h>
 #include <openrct2/Context.h>
 #include <openrct2/OpenRCT2.h>
 #include <openrct2/PlatformEnvironment.h>
@@ -11,6 +13,8 @@
 #include <openrct2/ui/UiContext.h>
 #include <spdlog/spdlog.h>
 #include "Env.h"
+#include "openrct2/drawing/NewDrawing.h"
+#include <cxxabi.h>
 using namespace OpenRCT2;
 using namespace OpenRCT2::Audio;
 using namespace OpenRCT2::Ui;
@@ -53,12 +57,16 @@ void RCT2Env::Init(int argc, const char** argv)
 }
 void RCT2Env::Step() {
     spdlog::info("stepping env");
+    uint8_t* bits = drawing_engine_get_dpi()->bits;
+    spdlog::info( abi::__cxa_demangle(typeid(bits).name(), 0, 0, 0));
+  //spdlog::info(&bits);
     this->context->RunFrame();
 }
 
 EnvInfo RCT2Env::GetInfo()
 {
     EnvInfo env_info = EnvInfo();
-    env_info.observation_space_type = "Discrete";
+    env_info.observation_space_type = "Box";
+    env_info.action_space_type = "Discrete";
     return env_info;
 }

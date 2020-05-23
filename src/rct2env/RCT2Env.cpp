@@ -132,6 +132,7 @@ int train(int argc, const char **argv) {
 //  Request<ResetParam> reset_request("reset", reset_param);
 //  communicator.send_request(reset_request);
     while (true) {
+        //spdlog::info(screenshot());
         env.Step();
     }
 
