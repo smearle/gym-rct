@@ -157,6 +157,7 @@ rct_window* window_object_load_error_open(utf8* path, size_t numMissingObjects, 
 rct_window* window_ride_construction_open();
 void window_ride_construction_update_active_elements_impl();
 void window_ride_construction_update_enabled_track_pieces();
+void window_ride_construction_construct(rct_window* w);
 
 rct_window* window_top_toolbar_open();
 bool land_tool_is_active();

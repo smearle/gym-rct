@@ -27,6 +27,7 @@
 #include <cstdlib>
 #include <memory>
 #include <openrct2-ui/interface/Window.h>
+#include <openrct2-ui/windows/Window.h>
 //#include <openrct2/Context.h>
 #include <openrct2/Input.h>
 #include <openrct2/Version.h>
@@ -140,11 +141,10 @@ public:
         act_i = actions[0];
         screen_x = actions[1];
         screen_y = actions[2];
-        if (screen_x == -1) {}
-        else {
-            ScreenCoordsXY screenCoords = ScreenCoordsXY({screen_x, screen_y});
-            _cursorState.position = screenCoords;
-        };
+ 
+        ScreenCoordsXY screenCoords = ScreenCoordsXY({screen_x, screen_y});
+        context_set_cursor_position(screenCoords);
+        _cursorState.position = screenCoords;
         if (mouse_i == 1) {
             _cursorState.left = 1;
         };
@@ -152,43 +152,59 @@ public:
         mouse_i = actions[4];
         build_i = actions[5];
         subbuild_i = actions[6];
-        if (key_i == 0) {}
-        else {
-            keyboard_shortcut_handle_command(key_i - 1);
-        };
-        
+      //if (key_i == 0) {}
+      //else {
+      ///   keyboard_shortcut_handle_command(key_i - 1);
+      //};
+        for (int i = 0; i < 100; i ++) {
+        if (act_i == 0) {
+            keyboard_shortcut_handle_command(SHORTCUT_SCROLL_MAP_LEFT);
+        }
         if (act_i == 1) {
-            if (first) {
+            keyboard_shortcut_handle_command(SHORTCUT_SCROLL_MAP_RIGHT);
+        }
+        if (act_i == 2) {
+            keyboard_shortcut_handle_command(SHORTCUT_SCROLL_MAP_UP);
+        }
+        if (act_i == 3) {
+            keyboard_shortcut_handle_command(SHORTCUT_SCROLL_MAP_DOWN);
+        }
+        }
+      //
+        if (act_i == 1) {
              // ScreenCoordsXY screenCoords2 = ScreenCoordsXY({500, 500});
              // _cursorState.position = screenCoords2;
                 ride_list_item *listItem = new ride_list_item();
                 listItem->type = build_i;
                 listItem->entry_index = subbuild_i;
                 ride_construct_new(*listItem);
+              //_cursorState.left = 1;
                 first = false;
                 window_ride_construction_keyboard_shortcut_turn_left();
                 window_ride_construction_keyboard_shortcut_build_current();
                 _cursorState.left = 1;
                 window_ride_construction_keyboard_shortcut_next_track();
                 window_ride_construction_keyboard_shortcut_turn_left();
+                rct_window* win = window_ride_construction_open();
+                window_ride_construction_construct(win);
                 keyboard_shortcut_handle_command(SHORTCUT_RIDE_CONSTRUCTION_BUILD_CURRENT);
                 window_update_all();
-            }
-          //window_ride_construction_keyboard_shortcut_next_track();
+            window_ride_construction_keyboard_shortcut_next_track();
             window_ride_construction_keyboard_shortcut_build_current();
+            window_new_ride_open();
         }
-        if (act_i ==2) {
-            window_ride_construction_keyboard_shortcut_turn_left();
-        }
-        if (act_i == 3) {
-            window_ride_construction_keyboard_shortcut_turn_right();
-        }
-        if (act_i == 4) {
-            window_ride_construction_keyboard_shortcut_use_track_default();
-        }
+      //if (act_i ==2) {
+      //    window_ride_construction_keyboard_shortcut_turn_left();
+      //}
+      //if (act_i == 3) {
+      //    window_ride_construction_keyboard_shortcut_turn_right();
+      //}
+      //if (act_i == 4) {
+      //    window_ride_construction_keyboard_shortcut_use_track_default();
+      //}
 
 
-        //window_close_all_except_class(WC_RIDE_CONSTRUCTION);
+          window_close_all_except_class(WC_RIDE_CONSTRUCTION);
         //AGENT END
         _inGameConsole.Update();
     }

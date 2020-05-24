@@ -58,6 +58,7 @@
 #include "interface/Window.h"
 
 using namespace OpenRCT2;
+using namespace OpenRCT2::Ui;
 
 GameState::GameState()
 {
@@ -107,7 +108,7 @@ void GameState::InitAll(int32_t mapSize)
  * another influence can be the game speed setting.
  */
 RideManager ride_manager = GetRideManager();
-int num_actions = 5;
+int num_actions = 3;
 int act_i = 0;
 uint8_t track_i = 76;
 void GameState::Update()
@@ -128,45 +129,50 @@ void GameState::Update()
   //int32_t selectedType;
   //selectedType = (gFootpathSelectedType << 7) + (gFootpathSelectedId & 0xFF);
 
-    if (act_i == 0) {
-        int az = rand() % MAXIMUM_LAND_HEIGHT + MINIMUM_LAND_HEIGHT;
-        auto landSetHeightAction = LandSetHeightAction({ax, ay}, az, 0);
-      //auto result_height = GameActions::Execute(&landSetHeightAction);
-    }
-    if (act_i == 1) {
-        int az = rand() % MAXIMUM_WATER_HEIGHT + MINIMUM_WATER_HEIGHT;
-        auto waterHeightAction = WaterSetHeightAction({ax, ay}, az);
-        auto result_water = GameActions::Execute(&waterHeightAction);
-                }
-    if (act_i == 2) {
-        int az = rand() % MAXIMUM_LAND_HEIGHT + MINIMUM_LAND_HEIGHT;
-        auto footpathPlaceAction = FootpathPlaceAction({ax,ay,az}, 0, 0);
-        auto result_footpath = GameActions::Execute(&footpathPlaceAction);
-                }
-    if (act_i == 3) {
-      //uint8_t ride_type_i;
-      //uint8_t entry_i;
-      //ScreenCoordsXY cursor_pos = {500,500};
-      //context_set_cursor_position(cursor_pos);
-        ride_list_item *listItem = new ride_list_item();
-        listItem->type = 28;
-        listItem->entry_index = 3;
-        ride_construct_new(*listItem);
-      //gScreenFlags = 68;
-      //auto ride = get_ride(_currentRideIndex);
-      //rct_string_id td = TrackDesign::CreateTrackDesign(ride);
-      //auto trackPlaceAction = TrackPlaceAction();
-    }
-    if (act_i == 4) {
-        auto trackPlaceAction = TrackPlaceAction(_currentRideIndex, track_i, {ax, ay, 136, 0}, 0, 0, 4, 0, false);
-        auto result_track = GameActions::Execute(&trackPlaceAction);
-    }
+    int az = rand() % MAXIMUM_LAND_HEIGHT + MINIMUM_LAND_HEIGHT;
+  //if (act_i == 0) {
+  //    auto landSetHeightAction = LandSetHeightAction({ax, ay}, az, 0);
+  //  //auto result_height = GameActions::Execute(&landSetHeightAction);
+  //}
+  //if (act_i == 1) {
+  //    int az = rand() % MAXIMUM_WATER_HEIGHT + MINIMUM_WATER_HEIGHT;
+  //    auto waterHeightAction = WaterSetHeightAction({ax, ay}, az);
+  //    auto result_water = GameActions::Execute(&waterHeightAction);
+  //            }
+  //if (act_i == 0) {
+  //    int az = rand() % MAXIMUM_LAND_HEIGHT + MINIMUM_LAND_HEIGHT;
+  //    auto footpathPlaceAction = FootpathPlaceAction({ax,ay,az}, 0, 0);
+  //    auto result_footpath = GameActions::Execute(&footpathPlaceAction);
+  //            }
+  //if (act_i == 1) {
+  //  //uint8_t ride_type_i;
+  //  //uint8_t entry_i;
+  //   
+  //    int screen_x = rand() % 640;
+  //  //screen_x = screen_x - 1;
+  //    int screen_y = rand() % 360;
+  //  //screen_y = screen_y - 1;
+  //  //ScreenCoordsXY cursor_pos = {screen_x, screen_y};
+  //  //context_set_cursor_position(cursor_pos);
+  //    ride_list_item *listItem = new ride_list_item();
+  //    listItem->type = 27;
+  //    listItem->entry_index = 3;
+  //    ride_construct_new(*listItem);
+  //  //gScreenFlags = 68;
+  //  //auto ride = get_ride(_currentRideIndex);
+  //  //rct_string_id td = TrackDesign::CreateTrackDesign(ride);
+  //  //auto trackPlaceAction = TrackPlaceAction();
+////}
+////if (act_i == 2) {
+  //    auto trackPlaceAction = TrackPlaceAction(_currentRideIndex++, track_i, {ax, ay, az, 0}, 0, 0, 4, 0, false);
+  //    auto result_track = GameActions::Execute(&trackPlaceAction);
+  //}
       //for (track_i = 0; track_i < 200; track_i ++) {
 
       //auto trackPlaceAction2 = TrackPlaceAction(_currentRideIndex, track_i, {ax, ay, 136, 0}, 0, 0, 4, 0, false);
       //auto result_track2 = GameActions::Execute(&trackPlaceAction2);
       //}
-      //window_close_construction_windows();
+        window_close_construction_windows();
       //track_i += 1;
         
         //FIXME: Why is this function undeclared?

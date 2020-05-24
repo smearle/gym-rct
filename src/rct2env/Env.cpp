@@ -1,7 +1,7 @@
 #include "UiContext.h"
 #include <openrct2-ui/audio/AudioContext.h>
 #include "../openrct2-ui/drawing/BitmapReader.h"
-
+#include <openrct2/interface/Screenshot.h>
 #include <openrct2/drawing/Drawing.h>
 #include <openrct2/drawing/IDrawingEngine.h>
 #include <openrct2/Context.h>
@@ -15,6 +15,9 @@
 #include "Env.h"
 #include "openrct2/drawing/NewDrawing.h"
 #include <cxxabi.h>
+#include <openrct2/interface/Viewport.h>
+#include <openrct2/interface/Screenshot.h>
+#include <openrct2/world/Map.h>
 using namespace OpenRCT2;
 using namespace OpenRCT2::Audio;
 using namespace OpenRCT2::Ui;
@@ -55,10 +58,22 @@ void RCT2Env::Init(int argc, const char** argv)
         rc = EXIT_FAILURE;
     }
 }
+
+void RCT2Env::Observe() {
+    Image image = get_observation();
+  //spdlog::info(typeid(image.Pixels).name());
+    std::vector<uint8_t> pixels = image.Pixels;
+    for (int i = 0; i < pixels.size(); i++) {
+  //    std::cout << unsigned(pixels.at(i)) << ' ';
+    }
+  //std::cout << pixels.size();
+}
+
 void RCT2Env::Step() {
-    spdlog::info("stepping env");
-    uint8_t* bits = drawing_engine_get_dpi()->bits;
-    spdlog::info( abi::__cxa_demangle(typeid(bits).name(), 0, 0, 0));
+  //spdlog::info("stepping env");
+    this->Observe();
+  //uint8_t* bits = drawing_engine_get_dpi()->bits;
+  //spdlog::info( abi::__cxa_demangle(typeid(bits).name(), 0, 0, 0));
   //spdlog::info(&bits);
     this->context->RunFrame();
 }

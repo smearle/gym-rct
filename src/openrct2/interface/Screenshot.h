@@ -12,6 +12,11 @@
 #include "../common.h"
 
 #include <string>
+#include "Viewport.h"
+#include "../core/Imaging.h"
+#include "../drawing/IDrawingEngine.h"
+
+using namespace OpenRCT2::Drawing;
 
 struct rct_drawpixelinfo;
 
@@ -35,6 +40,8 @@ void screenshot_check();
 std::string screenshot_dump();
 std::string screenshot_dump_png(rct_drawpixelinfo* dpi);
 std::string screenshot_dump_png_32bpp(int32_t width, int32_t height, const void* pixels);
+
+Image get_observation();
 
 void screenshot_giant();
 int32_t cmdline_for_screenshot(const char** argv, int32_t argc, ScreenshotOptions* options);

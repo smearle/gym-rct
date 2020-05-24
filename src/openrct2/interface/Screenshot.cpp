@@ -391,6 +391,77 @@ static void RenderViewport(IDrawingEngine* drawingEngine, const rct_viewport& vi
     viewport_render(&dpi, &viewport, 0, 0, viewport.width, viewport.height);
 }
 
+Image get_observation() 
+{
+    rct_drawpixelinfo dpi{};
+    try
+    {
+        auto path = screenshot_get_next_path();
+        if (path == std::nullopt)
+        {
+            throw std::runtime_error("Giant screenshot failed, unable to find a suitable destination path.");
+        }
+
+        int32_t rotation = get_current_rotation();
+        ZoomLevel zoom = 0;
+
+        auto mainWindow = window_get_main();
+        auto vp = window_get_viewport(mainWindow);
+        if (mainWindow != nullptr && vp != nullptr)
+        {
+            zoom = vp->zoom;
+        }
+
+        auto viewport = *vp;
+      //auto viewport = GetGiantViewport(gMapSize, rotation, zoom);
+        if (vp != nullptr)
+        {
+            viewport.flags = vp->flags;
+        }
+        if (gConfigGeneral.transparent_screenshot)
+        {
+            viewport.flags |= VIEWPORT_FLAG_TRANSPARENT_BACKGROUND;
+        }
+
+        dpi = CreateDPI(viewport);
+
+        RenderViewport(nullptr, viewport, dpi);
+        auto renderedPalette = screenshot_get_rendered_palette();
+        auto const pixels8 = dpi.bits;
+        auto const pixelsLen = (dpi.width + dpi.pitch) * dpi.height;
+        Image image;
+        try
+        {
+            image.Width = dpi.width;
+            image.Height = dpi.height;
+            image.Depth = 8;
+            image.Stride = dpi.width + dpi.pitch;
+            image.Palette = std::make_unique<rct_palette>(renderedPalette);
+            image.Pixels = std::vector<uint8_t>(pixels8, pixels8 + pixelsLen);
+          //Imaging::WriteToFile(path, image, IMAGE_FORMAT::PNG);
+        }
+        catch (const std::exception& e)
+        {
+            log_error("Unable to take observation: %s", e.what());
+        }
+
+        return image;
+
+      //// Show user that screenshot saved successfully
+      //set_format_arg(0, rct_string_id, STR_STRING);
+      //set_format_arg(2, char*, path_get_filename(path->c_str()));
+      //context_show_error(STR_SCREENSHOT_SAVED_AS, STR_NONE);
+    }
+    catch (const std::exception& e)
+    {
+        log_error("%s", e.what());
+        context_show_error(STR_SCREENSHOT_FAILED, STR_NONE);
+    }
+
+    ReleaseDPI(dpi);
+
+}
+
 void screenshot_giant()
 {
     rct_drawpixelinfo dpi{};

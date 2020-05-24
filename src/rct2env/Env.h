@@ -24,6 +24,7 @@ namespace OpenRCT2::Ui
 			void Init(int argc, const char** argv);
 			EnvInfo GetInfo();
 			void Step();
+			void Observe();
 			torch::Tensor* Step(int* actions_tensor);
 	};
 }
