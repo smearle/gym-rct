@@ -19,6 +19,8 @@
 #include "../openrct2-ui/interface/InGameConsole.h"
 #include "../openrct2-ui/interface/Theme.h"
 #include "../openrct2-ui/title/TitleSequencePlayer.h"
+#include <openrct2-ui/windows/Window.h>
+#include <openrct2/ride/TrackDesignRepository.h>
 
 #include <SDL.h>
 #include <algorithm>
@@ -27,7 +29,6 @@
 #include <cstdlib>
 #include <memory>
 #include <openrct2-ui/interface/Window.h>
-#include <openrct2-ui/windows/Window.h>
 //#include <openrct2/Context.h>
 #include <openrct2/Input.h>
 #include <openrct2/Version.h>
@@ -43,6 +44,13 @@
 #include <openrct2/title/TitleSequencePlayer.h>
 #include <openrct2/ui/UiContext.h>
 #include <openrct2/ui/WindowManager.h>
+#include <openrct2/actions/GameAction.h>
+#include <openrct2/actions/RideCreateAction.hpp>
+#include <openrct2/actions/TrackPlaceAction.hpp>
+#include <openrct2/actions/RideSetAppearanceAction.hpp>
+#include <openrct2/actions/RideSetStatus.hpp>
+#include <openrct2/actions/RideEntranceExitPlaceAction.hpp>
+#include <openrct2/world/Location.hpp>
 #include <vector>
 
 //AGENT
@@ -127,9 +135,9 @@ public:
     int mouse_i;
     int act_i;
     int key_i;
-    int build_i;
-    int subbuild_i;
-    bool first = true;
+    int rideType;
+    int rideSubType;
+    int count = 0;
     void Update() override
     {
         //AGENT
@@ -142,57 +150,171 @@ public:
         screen_x = actions[1];
         screen_y = actions[2];
  
-        ScreenCoordsXY screenCoords = ScreenCoordsXY({screen_x, screen_y});
-        context_set_cursor_position(screenCoords);
-        _cursorState.position = screenCoords;
-        if (mouse_i == 1) {
-            _cursorState.left = 1;
-        };
+      //ScreenCoordsXY screenCoords = ScreenCoordsXY({screen_x, screen_y});
+      //context_set_cursor_position(screenCoords);
+      //_cursorState.position = screenCoords;
+      //if (mouse_i == 1) {
+      //    _cursorState.left = 1;
+      //};
         key_i = actions[3];
         mouse_i = actions[4];
-        build_i = actions[5];
-        subbuild_i = actions[6];
+        rideType = actions[5];
+        rideSubType = actions[6];
+
+        rideType = 28;
+        rideSubType = 4;
+       
+
+        int x = 100;
+        int y = 100;
+        int z = 120;
+        Direction direction = 0;
+        CoordsXYZD origin = {x, y, z, direction};
+        int32_t trackType = 76;
+        int32_t brakeSpeed = 0;
+        int32_t colour = 0;
+        int32_t seatRotation = 4;
+        int trackPlaceFlags = 0;
+        int32_t liftHillAndAlternativeState = 0;
+        bool fromTrackDesign = 0;
+        if (count == 0){
+    	////track_design_file_ref* = GetItemsForObjectEntry(rideType, entry);
+    	////window_track_place_open(track_design_file_ref);
+    		auto rideCreateAction = RideCreateAction(rideType, rideSubType, 0, 0);
+    		auto result_ride = GameActions::Execute(&rideCreateAction);
+    		auto trackPlaceAction = TrackPlaceAction(_currentRideIndex, trackType, origin, brakeSpeed, colour, seatRotation, liftHillAndAlternativeState, fromTrackDesign);
+    		auto result_track = GameActions::Execute(&trackPlaceAction);
+    	  //auto rideSetAppearanceAction = RideSetAppearanceAction(_currentRideIndex, RideSetAppearanceType::TrackColourMain, 0, 0);
+    	  //auto result_appearance = GameActions::Execute(&rideSetAppearanceAction);
+    		auto rideSetStatusAction = RideSetStatusAction(_currentRideIndex, 1);
+    		auto result_status = GameActions::Execute(&rideSetStatusAction);
+    //window_ride_main_open(get_ride(_currentRideIndex));
+//  		_currentRideIndex++;
+        }
+        if (count == 1) {
+            _currentRideIndex++;
+        	x = 200;
+        	y = 200;
+        	rideType = 52;
+        	rideSubType = 255;
+			seatRotation = 0;
+        	auto rideCreateAction = RideCreateAction(rideType, rideSubType, 0, 0);
+        	auto result_ride = GameActions::Execute(&rideCreateAction);
+        	trackType = 1;
+			int x = 300;
+			int y = 288;
+			int z = 112;
+			int tileStep = 32;
+			Direction direction = 0;
+			CoordsXYZD origin = {x, y, z, direction};
+			for (int i = 0; i < 2; i++) {
+				origin = {x, y, z, direction};
+				auto trackPlaceAction = TrackPlaceAction(_currentRideIndex, trackType, origin, brakeSpeed, colour, seatRotation, liftHillAndAlternativeState, fromTrackDesign);
+				auto result_track = GameActions::Execute(&trackPlaceAction);
+				x = x - tileStep;
+			}
+			trackType = 0;
+			liftHillAndAlternativeState = 1;
+			origin = {x, y, z, direction};
+			auto trackPlaceAction = TrackPlaceAction(_currentRideIndex, trackType, origin, brakeSpeed, colour, seatRotation, liftHillAndAlternativeState, fromTrackDesign);
+			auto result_track = GameActions::Execute(&trackPlaceAction);
+			x = x - tileStep;
+			// turns
+			trackType = 42;
+			origin = {x, y, z, direction};
+			auto trackPlaceAction1 = TrackPlaceAction(_currentRideIndex, trackType, origin, brakeSpeed, colour, seatRotation, liftHillAndAlternativeState, fromTrackDesign);
+			auto result_track1 = GameActions::Execute(&trackPlaceAction1);
+			x = x - tileStep;
+			y = y - 2 * tileStep;
+			direction = 3;
+			origin = {x, y, z, direction};
+			auto trackPlaceAction2 = TrackPlaceAction(_currentRideIndex, trackType, origin, brakeSpeed, colour, seatRotation, liftHillAndAlternativeState, fromTrackDesign);
+			auto result_track2 = GameActions::Execute(&trackPlaceAction2);
+			x = x + 2 * tileStep;
+			y = y - tileStep;
+
+			for (int i = 0; i < 3; i++) {
+				trackType = 0;
+				direction = 2;
+				origin = {x, y, z, direction};
+				auto trackPlaceAction = TrackPlaceAction(_currentRideIndex, trackType, origin, brakeSpeed, colour, seatRotation, liftHillAndAlternativeState, fromTrackDesign);
+				auto result_track = GameActions::Execute(&trackPlaceAction);
+				x = x + tileStep;
+		//liftHillAndAlternativeState = 1;
+			}
+			// turns
+			trackType = 42;
+			origin = {x, y, z, direction};
+			for (int i = 0; i < 1; i++){
+			auto trackPlaceAction1 = TrackPlaceAction(_currentRideIndex, trackType, origin, brakeSpeed, colour, seatRotation, liftHillAndAlternativeState, fromTrackDesign);
+			auto result_track1 = GameActions::Execute(&trackPlaceAction1);
+			x = x + tileStep;
+			y = y + 2 * tileStep;
+			direction = 1;
+			origin = {x, y, z, direction};
+			auto trackPlaceAction2 = TrackPlaceAction(_currentRideIndex, trackType, origin, brakeSpeed, colour, seatRotation, liftHillAndAlternativeState, fromTrackDesign);
+			auto result_track2 = GameActions::Execute(&trackPlaceAction2);
+			x = x - 2 * tileStep;
+	        y = y + 2 * tileStep;
+            CoordsXY loc = {x, y};
+            StationIndex stationNum = 0;
+            bool isExit = false;
+            auto rideEntrancePlaceAction = RideEntranceExitPlaceAction(loc, direction, _currentRideIndex, stationNum, isExit);
+            auto result_entrance = GameActions::Execute(&rideEntrancePlaceAction);
+			x = x - tileStep;
+            loc = {x, y};
+            stationNum = 0;
+            isExit = true;
+            auto rideExitPlaceAction = RideEntranceExitPlaceAction(loc, direction, _currentRideIndex, stationNum, isExit);
+            auto result_entranct = GameActions::Execute(&rideExitPlaceAction);
+	
+			}
+
+
+       //_currentRideIndex++;
+        }
+
+            count++;
       //if (key_i == 0) {}
       //else {
       ///   keyboard_shortcut_handle_command(key_i - 1);
       //};
-        for (int i = 0; i < 100; i ++) {
-        if (act_i == 0) {
-            keyboard_shortcut_handle_command(SHORTCUT_SCROLL_MAP_LEFT);
-        }
-        if (act_i == 1) {
-            keyboard_shortcut_handle_command(SHORTCUT_SCROLL_MAP_RIGHT);
-        }
-        if (act_i == 2) {
-            keyboard_shortcut_handle_command(SHORTCUT_SCROLL_MAP_UP);
-        }
-        if (act_i == 3) {
-            keyboard_shortcut_handle_command(SHORTCUT_SCROLL_MAP_DOWN);
-        }
-        }
+      //for (int i = 0; i < 100; i ++) {
+      //if (act_i == 0) {
+      //    keyboard_shortcut_handle_command(SHORTCUT_SCROLL_MAP_LEFT);
+      //}
+      //if (act_i == 1) {
+      //    keyboard_shortcut_handle_command(SHORTCUT_SCROLL_MAP_RIGHT);
+      //}
+      //if (act_i == 2) {
+      //    keyboard_shortcut_handle_command(SHORTCUT_SCROLL_MAP_UP);
+      //}
+      //if (act_i == 3) {
+      //    keyboard_shortcut_handle_command(SHORTCUT_SCROLL_MAP_DOWN);
+      //}
+      //}
       //
-        if (act_i == 1) {
-             // ScreenCoordsXY screenCoords2 = ScreenCoordsXY({500, 500});
-             // _cursorState.position = screenCoords2;
-                ride_list_item *listItem = new ride_list_item();
-                listItem->type = build_i;
-                listItem->entry_index = subbuild_i;
-                ride_construct_new(*listItem);
-              //_cursorState.left = 1;
-                first = false;
-                window_ride_construction_keyboard_shortcut_turn_left();
-                window_ride_construction_keyboard_shortcut_build_current();
-                _cursorState.left = 1;
-                window_ride_construction_keyboard_shortcut_next_track();
-                window_ride_construction_keyboard_shortcut_turn_left();
-                rct_window* win = window_ride_construction_open();
-                window_ride_construction_construct(win);
-                keyboard_shortcut_handle_command(SHORTCUT_RIDE_CONSTRUCTION_BUILD_CURRENT);
-                window_update_all();
-            window_ride_construction_keyboard_shortcut_next_track();
-            window_ride_construction_keyboard_shortcut_build_current();
-            window_new_ride_open();
-        }
+      //if (act_i == 1) {
+      //     // ScreenCoordsXY screenCoords2 = ScreenCoordsXY({500, 500});
+      //     // _cursorState.position = screenCoords2;
+      //        ride_list_item *listItem = new ride_list_item();
+      //        listItem->type = build_i;
+      //        listItem->entry_index = subbuild_i;
+      //        ride_construct_new(*listItem);
+      //      //_cursorState.left = 1;
+      //        first = false;
+      //        window_ride_construction_keyboard_shortcut_turn_left();
+      //        window_ride_construction_keyboard_shortcut_build_current();
+      //        _cursorState.left = 1;
+      //        window_ride_construction_keyboard_shortcut_next_track();
+      //        window_ride_construction_keyboard_shortcut_turn_left();
+      //        rct_window* win = window_ride_construction_open();
+      //        keyboard_shortcut_handle_command(SHORTCUT_RIDE_CONSTRUCTION_BUILD_CURRENT);
+      //        window_update_all();
+      //    window_ride_construction_keyboard_shortcut_next_track();
+      //    window_ride_construction_keyboard_shortcut_build_current();
+      //    window_new_ride_open();
+      //}
       //if (act_i ==2) {
       //    window_ride_construction_keyboard_shortcut_turn_left();
       //}
@@ -204,7 +326,7 @@ public:
       //}
 
 
-          window_close_all_except_class(WC_RIDE_CONSTRUCTION);
+      //  window_close_all_except_class(WC_RIDE_CONSTRUCTION);
         //AGENT END
         _inGameConsole.Update();
     }

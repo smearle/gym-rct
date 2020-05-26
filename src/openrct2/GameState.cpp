@@ -172,7 +172,6 @@ void GameState::Update()
       //auto trackPlaceAction2 = TrackPlaceAction(_currentRideIndex, track_i, {ax, ay, 136, 0}, 0, 0, 4, 0, false);
       //auto result_track2 = GameActions::Execute(&trackPlaceAction2);
       //}
-        window_close_construction_windows();
       //track_i += 1;
         
         //FIXME: Why is this function undeclared?

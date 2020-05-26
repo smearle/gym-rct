@@ -11,6 +11,7 @@
 #include <openrct2/cmdline/CommandLine.hpp>
 #include <openrct2/platform/platform.h>
 #include <openrct2/ui/UiContext.h>
+#include <openrct2/Cheats.h>
 #include <spdlog/spdlog.h>
 #include "Env.h"
 #include "openrct2/drawing/NewDrawing.h"
@@ -33,6 +34,8 @@ void RCT2Env::Init(int argc, const char** argv)
     int runGame = cmdline_run(argv, argc);
     core_init();
     RegisterBitmapReader();
+	gCheatsIgnoreResearchStatus = true;
+	gCheatsSandboxMode = true;
     if (runGame == EXITCODE_CONTINUE)
     {
 		spdlog::info("Creating context:");
@@ -60,12 +63,12 @@ void RCT2Env::Init(int argc, const char** argv)
 }
 
 void RCT2Env::Observe() {
-    Image image = get_observation();
+  //Image image = get_observation();
   //spdlog::info(typeid(image.Pixels).name());
-    std::vector<uint8_t> pixels = image.Pixels;
-    for (int i = 0; i < pixels.size(); i++) {
+  //std::vector<uint8_t> pixels = image.Pixels;
+  //for (int i = 0; i < pixels.size(); i++) {
   //    std::cout << unsigned(pixels.at(i)) << ' ';
-    }
+  //}
   //std::cout << pixels.size();
 }
 
