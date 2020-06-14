@@ -196,6 +196,8 @@ void S6Exporter::Export()
     _s6.scenario_srand_0 = state.s0;
     _s6.scenario_srand_1 = state.s1;
 
+    // Map elements must be reorganised prior to saving otherwise save may be invalid
+    map_reorganise_elements();
     ExportTileElements();
     ExportSprites();
     ExportParkName();
@@ -1015,7 +1017,7 @@ void S6Exporter::ExportSpriteVehicle(RCT2SpriteVehicle* dst, const Vehicle* src)
     dst->vehicle_type = src->vehicle_type;
     dst->colours = src->colours;
     dst->track_progress = src->track_progress;
-    if (ride != nullptr && ride->mode == RIDE_MODE_BOAT_HIRE)
+    if (ride != nullptr && ride->mode == RIDE_MODE_BOAT_HIRE && src->status == VEHICLE_STATUS_TRAVELLING_BOAT)
     {
         if (src->BoatLocation.isNull())
         {
@@ -1029,9 +1031,10 @@ void S6Exporter::ExportSpriteVehicle(RCT2SpriteVehicle* dst, const Vehicle* src)
     }
     else
     {
+        // Track direction and type are in the same field
         dst->track_direction = src->track_direction;
+        // dst->track_type = src->track_type;
     }
-    dst->track_type = src->track_type;
     dst->track_x = src->TrackLocation.x;
     dst->track_y = src->TrackLocation.y;
     dst->track_z = src->TrackLocation.z;
@@ -1498,20 +1501,18 @@ void S6Exporter::ExportTileElement(RCT12TileElement* dst, TileElement* src)
             dst2->SetPhotoTimeout(src2->GetPhotoTimeout());
             dst2->SetBlockBrakeClosed(src2->BlockBrakeClosed());
             dst2->SetIsIndestructible(src2->IsIndestructible());
+            dst2->SetSeatRotation(src2->GetSeatRotation());
+            // Skipping IsHighlighted()
 
+            // This has to be done last, since the maze entry shares fields with the colour and sequence fields.
             auto ride = get_ride(dst2->GetRideIndex());
             if (ride)
             {
-                if (ride->type == RIDE_TYPE_MULTI_DIMENSION_ROLLER_COASTER)
-                {
-                    dst2->SetSeatRotation(src2->GetSeatRotation());
-                }
-                else if (ride->type == RIDE_TYPE_MAZE)
+                if (ride->type == RIDE_TYPE_MAZE)
                 {
                     dst2->SetMazeEntry(src2->GetMazeEntry());
                 }
             }
-            // Skipping IsHighlighted()
 
             break;
         }

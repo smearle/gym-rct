@@ -656,6 +656,9 @@ bool track_block_get_previous_from_zero(
  */
 bool track_block_get_previous(int32_t x, int32_t y, TileElement* tileElement, track_begin_end* outTrackBeginEnd)
 {
+    if (tileElement == nullptr)
+        return false;
+
     auto trackElement = tileElement->AsTrack();
     if (trackElement == nullptr)
         return false;
@@ -4492,6 +4495,7 @@ static Vehicle* vehicle_create_car(
     // loc_6DDD5E:
     vehicle->num_peeps = 0;
     vehicle->next_free_seat = 0;
+    vehicle->BoatLocation.setNull();
     return vehicle;
 }
 
@@ -4561,7 +4565,7 @@ static void vehicle_create_trains(ride_id_t rideIndex, int32_t x, int32_t y, int
         lastTrain = train;
 
         // Add train to ride vehicle list
-        move_sprite_to_list(train.head, SPRITE_LIST_VEHICLE_HEAD);
+        move_sprite_to_list(train.head, SPRITE_LIST_TRAIN_HEAD);
         for (int32_t i = 0; i <= MAX_VEHICLES_PER_RIDE; i++)
         {
             if (ride->vehicles[i] == SPRITE_INDEX_NULL)
@@ -7105,7 +7109,7 @@ Vehicle* ride_get_broken_vehicle(Ride* ride)
     }
 
     Vehicle* vehicle = GET_VEHICLE(vehicleIndex);
-    for (uint8_t i = 0; i < ride->broken_car; i++)
+    for (uint8_t i = 0; vehicle != nullptr && i < ride->broken_car; i++)
     {
         vehicle = GET_VEHICLE(vehicle->next_vehicle_on_train);
     }

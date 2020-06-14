@@ -5,11 +5,23 @@
 #include "../openrct2/peep/Peep.h"
 #include "../openrct2/world/Sprite.h"
 
+			enum
+			{
+				ACTION,
+				MAP_X,
+				MAP_Y,
+				MAP_Z,
+				DIRECTION,
+				TRACK_TYPE,
+				NUM_ACTIONS,
+			};
 namespace OpenRCT2
 {
 	class Agent final {
 		private:
-			int actions [5];
+
+
+			int actions [NUM_ACTIONS];
 			int screen_x;
 			int screen_y;
 			int num_acts = 5;
@@ -22,8 +34,11 @@ namespace OpenRCT2
 			int build_i;
 			int subbuild_i;
 			int mouse_i;
-			int coord_x;
-			int coord_y;
+			int map_x;
+			int map_y;
+			int map_z;
+			int direction;
+			int track_type;
 			int num_guests;
 		public:
 			int screen_width;

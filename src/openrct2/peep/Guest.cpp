@@ -3728,9 +3728,18 @@ void Guest::UpdateRideAdvanceThroughEntrance()
     }
 
     Vehicle* vehicle = GET_VEHICLE(ride->vehicles[current_train]);
+    if (vehicle == nullptr)
+    {
+        return;
+    }
+
     for (int32_t i = current_car; i != 0; --i)
     {
         vehicle = GET_VEHICLE(vehicle->next_vehicle_on_train);
+        if (vehicle == nullptr)
+        {
+            return;
+        }
     }
 
     ride_entry = get_ride_entry(vehicle->ride_subtype);
@@ -5841,7 +5850,8 @@ void Guest::UpdateUsingBin()
             if (tileElement == nullptr)
                 return;
 
-            for (;; tileElement++)
+            bool found = false;
+            do
             {
                 if (tileElement->GetType() != TILE_ELEMENT_TYPE_PATH)
                 {
@@ -5849,13 +5859,16 @@ void Guest::UpdateUsingBin()
                 }
 
                 if (tileElement->GetBaseZ() == NextLoc.z)
-                    break;
-
-                if (tileElement->IsLastForTile())
                 {
-                    StateReset();
-                    return;
+                    found = true;
+                    break;
                 }
+            } while (!(tileElement++)->IsLastForTile());
+
+            if (!found)
+            {
+                StateReset();
+                return;
             }
 
             if (!tileElement->AsPath()->HasAddition())

@@ -27,22 +27,32 @@ int* Agent::Step()
         		build_i = rand() % num_builds;
         		subbuild_i = rand() % num_subbuilds;
 
-				coord_x = rand() % gMapSizeUnits;
-				coord_y = rand() % gMapSizeUnits;
-			////key_i = 0;
-		     // act_i = 1;
-			////mouse_i = 1;
+				map_x = rand() % gMapSizeUnits;
+				map_y = rand() % gMapSizeUnits;
+                map_z = rand() % gMapSizeUnits;
+                direction = rand() % 4;
+                track_type = rand() % 256;
+			  //key_i = 0;
+		      //act_i = 1;
+			  //mouse_i = 1;
 			  //screen_x = 100;
 			  //screen_y = 100;
 			  //build_i = 50;
 			  //subbuild_i = 50;
 				
-				actions[0] = act_i;		
-				actions[1] = screen_x;
-				actions[2] = screen_y;
-				actions[3] = key_i;
-				actions[4] = mouse_i;
-				actions[5] = build_i;
-				actions[6] = subbuild_i;
+              //actions[1] = screen_x;
+              //actions[2] = screen_y;
+              //actions[3] = key_i;
+              //actions[4] = mouse_i;
+              //actions[5] = build_i;
+              //actions[6] = subbuild_i;
+
+                actions[ACTION] = act_i;
+                actions[MAP_X] = map_x;
+                actions[MAP_Y] = map_y;
+                actions[MAP_Z] = map_z;
+                actions[DIRECTION] = direction;
+                actions[TRACK_TYPE] = track_type;
+
 				return actions;
 			}

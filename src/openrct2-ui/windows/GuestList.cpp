@@ -234,13 +234,13 @@ void window_guest_list_refresh_list()
     {
         return;
     }
-    _window_guest_list_last_find_groups_wait = 0;
-    _window_guest_list_last_find_groups_tick = 0;
-    window_guest_list_find_groups();
 
     // Only the individual tab uses the GuestList so no point calculating it
     if (_window_guest_list_selected_tab != PAGE_INDIVIDUAL)
     {
+        _window_guest_list_last_find_groups_wait = 0;
+        _window_guest_list_last_find_groups_tick = 0;
+        window_guest_list_find_groups();
         return;
     }
 
@@ -256,7 +256,6 @@ void window_guest_list_refresh_list()
         {
             if (window_guest_list_is_peep_in_filter(peep))
                 continue;
-            gWindowMapFlashingFlags |= (1 << 0);
             sprite_set_flashing(peep, true);
         }
         if (!guest_should_be_visible(peep))
@@ -343,6 +342,7 @@ rct_window* window_guest_list_open_with_filter(int32_t type, int32_t index)
         }
     }
 
+    window_guest_list_refresh_list();
     return w;
 }
 
@@ -368,6 +368,7 @@ static void window_guest_list_mouseup(rct_window* w, rct_widgetindex widgetIndex
                 w->pressed_widgets &= ~(1 << WIDX_TRACKING);
             w->Invalidate();
             w->scrolls[0].v_top = 0;
+            window_guest_list_refresh_list();
             break;
         case WIDX_FILTER_BY_NAME:
             if (strnlen(_window_guest_list_filter_name, sizeof(_window_guest_list_filter_name)) > 0)
@@ -375,6 +376,7 @@ static void window_guest_list_mouseup(rct_window* w, rct_widgetindex widgetIndex
                 // Unset the search filter.
                 _window_guest_list_filter_name[0] = '\0';
                 w->pressed_widgets &= ~(1 << WIDX_FILTER_BY_NAME);
+                window_guest_list_refresh_list();
             }
             else
             {
@@ -509,6 +511,7 @@ static void window_guest_list_update(rct_window* w)
     if (w->list_information_type >= (_window_guest_list_selected_tab == PAGE_INDIVIDUAL ? 24 : 32))
         w->list_information_type = 0;
     widget_invalidate(w, WIDX_TAB_1 + _window_guest_list_selected_tab);
+    gWindowMapFlashingFlags |= (1 << 0);
 }
 
 /**
@@ -594,6 +597,7 @@ static void window_guest_list_scrollmousedown(rct_window* w, int32_t scrollIndex
                 window_guest_list_widgets[WIDX_TRACKING].type = WWT_FLATBTN;
                 w->Invalidate();
                 w->scrolls[0].v_top = 0;
+                window_guest_list_refresh_list();
             }
             break;
     }
@@ -855,6 +859,7 @@ static void window_guest_list_textinput(rct_window* w, rct_widgetindex widgetInd
     {
         safe_strcpy(_window_guest_list_filter_name, text, sizeof(_window_guest_list_filter_name));
         w->pressed_widgets |= (1 << WIDX_FILTER_BY_NAME);
+        window_guest_list_refresh_list();
     }
 }
 
