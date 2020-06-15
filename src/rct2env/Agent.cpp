@@ -17,10 +17,10 @@ int* Agent::Step()
         		FOR_ALL_PEEPS (spriteIndex, peep)
         			num_guests ++;
               //log_info(std::to_string(num_guests).c_str());
-        		screen_x = rand() % screen_width;
-        		screen_x = screen_x - 1;
-        		screen_y = rand() % screen_height;
-        		screen_y = screen_y - 1;
+        	////screen_x = rand() % screen_width;
+        	////screen_x = screen_x - 1;
+        	////screen_y = rand() % screen_height;
+        	////screen_y = screen_y - 1;
         		act_i = rand() % num_acts;
         		key_i = rand() % num_keys;
         		mouse_i = rand() % num_mouse;

@@ -1,11 +1,12 @@
+#include "Agent.h"
 #include "UiContext.h"
 #include <cpprl/cpprl.h>
 
 struct EnvInfo {
 	std::string observation_space_type;
 	std::string observation_space_shape;
-	std::string action_space_type;
-	std::string action_space_shape;
+    std::string action_space_type;
+    std::string action_space_shape;
 };
 
 namespace OpenRCT2::Ui
@@ -14,11 +15,18 @@ namespace OpenRCT2::Ui
 	{
 		return std::shared_ptr<T>(std::move(src));
 	}
+    Agent agent;
 
 	class RCT2Env {
 		private:
-			std::unique_ptr<IContext> context;
-		public:
+            std::unique_ptr<IContext> context;
+          //auto uiContext;
+            int act_i;
+            int key_i;
+            int rideType;
+            int rideSubType;
+            int count = 0;
+        public:
 			RCT2Env();	
 	//RCT2Env(const RCT2Env&) = delete;
 			void Init(int argc, const char** argv);
@@ -26,5 +34,6 @@ namespace OpenRCT2::Ui
 			void Step();
 			void Observe();
 			torch::Tensor* Step(int* actions_tensor);
+
 	};
 }
