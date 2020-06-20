@@ -197,10 +197,8 @@ int train(int argc, const char **argv) {
                                      kl_target);
     }
 
-	   std::cout << "mid step 3" << std::endl;
     storage.set_first_observation(observation);
 
-	   std::cout << "mid step 1" << std::endl;
     std::vector<float> running_rewards(num_envs);
     int episode_count = 0;
     bool render = false;
@@ -226,6 +224,7 @@ int train(int argc, const char **argv) {
             auto actions_tensor = act_result[1].cpu().to(torch::kFloat);
             float *actions_array = actions_tensor.data_ptr<float>();
             std::vector<std::vector<float>> actions(num_envs);
+          //std::cout << actions_tensor.sizes() << std::endl;
             for (int i = 0; i < num_envs; ++i)
             {
                 if (space.type == "Discrete")
@@ -240,13 +239,14 @@ int train(int argc, const char **argv) {
                     }
                 }
             }
+          //std::cout << actions[0].size() << std::endl;
 
           //auto step_param = std::make_shared<StepParam>();
           //step_param->actions = actions;
           //step_param->render = render;
           //Request<StepParam> step_request("step", step_param);
           //communicator.send_request(step_request);
-			StepResult step_result = env.Step();
+			StepResult step_result = env.Step(actions);
 			torch::Tensor rewards = step_result.rewards;
 			torch::Tensor real_rewards = rewards.clone();
 	//torch::Tensor real_rewards = step_result->rewards;
@@ -313,48 +313,48 @@ int train(int argc, const char **argv) {
         }
 
 
-      //torch::Tensor next_value;
-      //{
-      //    torch::NoGradGuard no_grad;
-      //    next_value = policy->get_values(
-      //                           storage.get_observations()[-1],
-      //                           storage.get_hidden_states()[-1],
-      //                           storage.get_masks()[-1])
-      //                     .detach();
-      //}
-      //storage.compute_returns(next_value, use_gae, discount_factor, gae);
+        torch::Tensor next_value;
+        {
+            torch::NoGradGuard no_grad;
+            next_value = policy->get_values(
+                                   storage.get_observations()[-1],
+                                   storage.get_hidden_states()[-1],
+                                   storage.get_masks()[-1])
+                             .detach();
+        }
+        storage.compute_returns(next_value, use_gae, discount_factor, gae);
 
-      //float decay_level;
-      //if (use_lr_decay)
-      //{
-      //    decay_level = 1. - static_cast<float>(update) / num_updates;
-      //}
-      //else
-      //{
-      //    decay_level = 1;
-      //}
-      //auto update_data = algo->update(storage, decay_level);
-      //storage.after_update();
+        float decay_level;
+        if (use_lr_decay)
+        {
+            decay_level = 1. - static_cast<float>(update) / num_updates;
+        }
+        else
+        {
+            decay_level = 1;
+        }
+        auto update_data = algo->update(storage, decay_level);
+        storage.after_update();
 
-      //if (update % log_interval == 0 && update > 0)
-      //{
-      //    auto total_steps = (update + 1) * batch_size * num_envs;
-      //    auto run_time = std::chrono::high_resolution_clock::now() - start_time;
-      //    auto run_time_secs = std::chrono::duration_cast<std::chrono::seconds>(run_time);
-      //    auto fps = total_steps / (run_time_secs.count() + 1e-9);
-      //    spdlog::info("---");
-      //    spdlog::info("Update: {}/{}", update, num_updates);
-      //    spdlog::info("Total frames: {}", total_steps);
-      //    spdlog::info("FPS: {}", fps);
-      //    for (const auto &datum : update_data)
-      //    {
-      //        spdlog::info("{}: {}", datum.name, datum.value);
-      //    }
-      //    float average_reward = std::accumulate(reward_history.begin(), reward_history.end(), 0);
-      //    average_reward /= episode_count < reward_average_window_size ? episode_count : reward_average_window_size;
-      //    spdlog::info("Reward: {}", average_reward);
-      //    render = average_reward >= render_reward_threshold;
-      //}
+        if (update % log_interval == 0 && update > 0)
+        {
+            auto total_steps = (update + 1) * batch_size * num_envs;
+            auto run_time = std::chrono::high_resolution_clock::now() - start_time;
+            auto run_time_secs = std::chrono::duration_cast<std::chrono::seconds>(run_time);
+            auto fps = total_steps / (run_time_secs.count() + 1e-9);
+            spdlog::info("---");
+            spdlog::info("Update: {}/{}", update, num_updates);
+            spdlog::info("Total frames: {}", total_steps);
+            spdlog::info("FPS: {}", fps);
+            for (const auto &datum : update_data)
+            {
+                spdlog::info("{}: {}", datum.name, datum.value);
+            }
+            float average_reward = std::accumulate(reward_history.begin(), reward_history.end(), 0);
+            average_reward /= episode_count < reward_average_window_size ? episode_count : reward_average_window_size;
+            spdlog::info("Reward: {}", average_reward);
+            render = average_reward >= render_reward_threshold;
+        }
     }
 }
 

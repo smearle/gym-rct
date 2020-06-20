@@ -35,7 +35,7 @@ namespace OpenRCT2::Ui
 			bool cold_open = false;
 			int cold_open_steps = -1;
 			torch::Tensor  rewards;
-			int max_step = 200;
+			int max_step = 500;
 			std::string observation_space_type;
 			std::vector<int> observation_space_shape;
 			std::string action_space_type;
@@ -45,7 +45,7 @@ namespace OpenRCT2::Ui
 	//RCT2Env(const RCT2Env&) = delete;
 			void Init(int argc, const char** argv);
 			EnvInfo * GetInfo();
-			StepResult Step();
+			StepResult Step(std::vector<std::vector<float>> actions);
 
 ////		std::vector<std::vector<float>> Observe();
 ////		std::vector<std::vector<float>> Reset();

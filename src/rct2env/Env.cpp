@@ -70,11 +70,14 @@ RCT2Env::RCT2Env()
 EnvInfo * RCT2Env::GetInfo()
 {
     EnvInfo * env_info = new EnvInfo();
-    env_info->observation_space_type = "Box";
-    env_info->action_space_type = "Discrete";
-    std::vector<long int> observation_space_shape = {100};
+    env_info->observation_space_type = "Discrete";
+    env_info->action_space_type = "Box";
+    Image image = get_observation();
+    std::vector<uint8_t> pixels = image.Pixels;
+    std::vector<long int> observation_space_shape = {pixels.size()};
+  //std::vector<long int> observation_space_shape = {100};
     env_info->observation_space_shape = observation_space_shape;
-    std::vector<long int>  action_space_shape = {1280};
+    std::vector<long int>  action_space_shape = {NUM_ACTIONS};
     env_info->action_space_shape = action_space_shape;
     return env_info;
 }
@@ -127,9 +130,9 @@ torch::Tensor RCT2Env::Reset() {
 }
 
 torch::Tensor RCT2Env::Observe() {
-  //Image image = get_observation();
-  //spdlog::info(typeid(image.Pixels).name());
-  //std::vector<uint8_t> pixels = image.Pixels;
+    Image image = get_observation();
+    std::vector<uint8_t> pixels = image.Pixels;
+    torch::Tensor observation = torch::from_blob(pixels.data(), {1}).to(torch::kInt8);
   //for (int i = 0; i < pixels.size(); i++) {
   //    std::cout << unsigned(pixels.at(i)) << ' ';
   //}
@@ -139,12 +142,12 @@ torch::Tensor RCT2Env::Observe() {
   //std::vector<std::vector<float> > observation(
   //    200,
   //    std::vector<float>(300));
-    torch::Tensor observation = torch::randn({100});
+  //torch::Tensor observation = torch::randn({100});
     return observation;
 }
 
 
-StepResult RCT2Env::Step() {
+StepResult RCT2Env::Step(std::vector<std::vector<float>> actions) {
   //spdlog::info("stepping env");
     this->Observe();
   //uint8_t* bits = drawing_engine_get_dpi()->bits;
@@ -152,7 +155,17 @@ StepResult RCT2Env::Step() {
   //spdlog::info(&bits);
     this->context->RunFrame();
     rewards = torch::zeros({1, 1});
-    int* actions = agent.Step();
+    std::vector<float> env_actions_f = actions[0];
+    std::vector<int> env_actions(NUM_ACTIONS);
+    env_actions[MAP_X] = round(env_actions_f[MAP_X] * gMapSizeUnits);
+    env_actions[MAP_Y] = round(env_actions_f[MAP_Y] * gMapSizeUnits);
+    env_actions[MAP_Z] = round(env_actions_f[MAP_Z] * gMapSizeUnits);
+    env_actions[ACTION] = round(env_actions_f[ACTION] * 2);
+    env_actions[DIRECTION] = round(env_actions_f[DIRECTION]);
+    env_actions[TRACK_TYPE] = round(env_actions_f[TRACK_TYPE]);
+
+    std::cout << env_actions << std::endl;
+  //int* actions = agent.Step();
     rideType = RIDE_TYPE_CORKSCREW_ROLLER_COASTER;
     rideSubType = 4;
     int x = 100;
@@ -193,16 +206,17 @@ StepResult RCT2Env::Step() {
           //_currentRideIndex++;
             }
 
-            origin = {actions[MAP_X], actions[MAP_Y], actions[MAP_Z], actions[DIRECTION]};
-            auto trackPlaceAction = TrackPlaceAction(_currentRideIndex, actions[TRACK_TYPE], origin, brakeSpeed, colour, seatRotation, liftHillAndAlternativeState, fromTrackDesign);
+            origin = {env_actions[MAP_X], env_actions[MAP_Y], env_actions[MAP_Z], env_actions[DIRECTION]};
+            auto trackPlaceAction = TrackPlaceAction(_currentRideIndex, env_actions[TRACK_TYPE], origin, brakeSpeed, colour, seatRotation, liftHillAndAlternativeState, fromTrackDesign);
             auto result_track = GameActions::Execute(&trackPlaceAction);
             GA_ERROR success = result_track->Error;
             if (success == GA_ERROR::OK) {
-                std::cout << "build success, step " << std::to_string(count) << std::endl;
+              //std::cout << "build success, step " << std::to_string(count) << std::endl;
               //std::vector<float> reward_deltas = {1};
                 torch::Tensor reward_deltas = torch::ones({{1}});
                 rewards = rewards + reward_deltas;
             }
+              //std::cout << rewards[0][0] << std::endl;
           //rct_string_id ErrorTitle = result_track->ErrorTitle;
           //std::cout << std::to_string(ErrorTitle) << std::endl;
           //if (ErrorTitle != STR_RIDE_CONSTRUCTION_CANT_CONSTRUCT_THIS_HERE){

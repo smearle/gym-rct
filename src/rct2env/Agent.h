@@ -13,6 +13,7 @@
 				MAP_Z,
 				DIRECTION,
 				TRACK_TYPE,
+				// size
 				NUM_ACTIONS,
 			};
 namespace OpenRCT2
