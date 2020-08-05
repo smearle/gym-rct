@@ -19,6 +19,7 @@
 #include <openrct2/interface/Viewport.h>
 #include <openrct2/interface/Screenshot.h>
 #include <openrct2/world/Map.h>
+#include <openrct2/ride/TrackData.h>
 
 #include <openrct2/actions/GameAction.h>
 #include <openrct2/actions/RideCreateAction.hpp>
@@ -70,11 +71,12 @@ RCT2Env::RCT2Env()
 EnvInfo * RCT2Env::GetInfo()
 {
     EnvInfo * env_info = new EnvInfo();
-    env_info->observation_space_type = "Discrete";
+    env_info->observation_space_type = "Box";
     env_info->action_space_type = "Box";
-    Image image = get_observation();
-    std::vector<uint8_t> pixels = image.Pixels;
-    std::vector<long int> observation_space_shape = {pixels.size()};
+    std::vector<long int> observation_space_shape = {n_chan, map_width};
+  //Image image = get_observation();
+  //std::vector<uint8_t> pixels = image.Pixels;
+  //std::vector<long int> observation_space_shape = {pixels.size()};
   //std::vector<long int> observation_space_shape = {100};
     env_info->observation_space_shape = observation_space_shape;
     std::vector<long int>  action_space_shape = {NUM_ACTIONS};
@@ -113,9 +115,9 @@ void RCT2Env::Init(int argc, const char** argv)
 
 
     // Agent
-
+    map_width = 15;
     int mouse_i;
-
+    state = torch::zeros((n_chan, map_width));
     }
     else if (runGame == EXITCODE_FAIL)
     {
@@ -130,9 +132,9 @@ torch::Tensor RCT2Env::Reset() {
 }
 
 torch::Tensor RCT2Env::Observe() {
-    Image image = get_observation();
-    std::vector<uint8_t> pixels = image.Pixels;
-    torch::Tensor observation = torch::from_blob(pixels.data(), {1}).to(torch::kInt8);
+  //Image image = get_observation();
+  //std::vector<uint8_t> pixels = image.Pixels;
+  //torch::Tensor observation = torch::from_blob(pixels.data(), {1}).to(torch::kInt8);
   //for (int i = 0; i < pixels.size(); i++) {
   //    std::cout << unsigned(pixels.at(i)) << ' ';
   //}
@@ -143,7 +145,7 @@ torch::Tensor RCT2Env::Observe() {
   //    200,
   //    std::vector<float>(300));
   //torch::Tensor observation = torch::randn({100});
-    return observation;
+    return state;
 }
 
 
@@ -157,23 +159,30 @@ StepResult RCT2Env::Step(std::vector<std::vector<float>> actions) {
     rewards = torch::zeros({1, 1});
     std::vector<float> env_actions_f = actions[0];
     std::vector<int> env_actions(NUM_ACTIONS);
-    env_actions[MAP_X] = round(env_actions_f[MAP_X] * gMapSizeUnits);
-    env_actions[MAP_Y] = round(env_actions_f[MAP_Y] * gMapSizeUnits);
-    env_actions[MAP_Z] = round(env_actions_f[MAP_Z] * gMapSizeUnits);
-    env_actions[ACTION] = round(env_actions_f[ACTION] * 2);
-    env_actions[DIRECTION] = round(env_actions_f[DIRECTION]);
-    env_actions[TRACK_TYPE] = round(env_actions_f[TRACK_TYPE]);
+    uint8_t map_x = (int) round(std::abs(env_actions_f[MAP_X]) * map_width) % map_width;
+  //env_actions[MAP_X] = round(env_actions_f[MAP_X] * gMapSizeUnits);
+    uint8_t map_y = (int) round(std::abs(env_actions_f[MAP_Y]) * map_width) % map_width;
+  //env_actions[MAP_Y] = round(env_actions_f[MAP_Y] * gMapSizeUnits);
+    uint8_t map_z = (int) (round(std::abs(env_actions_f[MAP_Z] * (MAXIMUM_LAND_HEIGHT - MINIMUM_LAND_HEIGHT))) + MINIMUM_LAND_HEIGHT) % MAXIMUM_LAND_HEIGHT;
+  //env_actions[MAP_Z] = round(env_actions_f[MAP_Z] * gMapSizeUnits);
+  //env_actions[ACTION] = round(env_actions_f[ACTION] * 2);
+    int32_t trackType_32 = round(env_actions_f[TRACK_TYPE] * 255);
+    int32_t trackType = std::abs(trackType_32 % 255);
+  //env_actions[TRACK_TYPE] = round(env_actions_f[TRACK_TYPE]);
+    Direction direction = std::abs((int)round(env_actions_f[DIRECTION] * 4)) % 4;
+  //env_actions[DIRECTION] = round(env_actions_f[DIRECTION]);
 
-    std::cout << env_actions << std::endl;
+    std::cout << unsigned(direction) << std::endl;
+  //std::cout << env_actions << std::endl;
   //int* actions = agent.Step();
     rideType = RIDE_TYPE_CORKSCREW_ROLLER_COASTER;
     rideSubType = 4;
     int x = 100;
     int y = 100;
     int z = 120;
-    Direction direction = 0;
+  //Direction direction = 0;
     CoordsXYZD origin = {x, y, z, direction};
-    int32_t trackType = 76;
+  //int32_t trackType = 76;
     int32_t brakeSpeed = 0;
     int32_t colour = 0;
     int32_t seatRotation = 4;
@@ -206,8 +215,8 @@ StepResult RCT2Env::Step(std::vector<std::vector<float>> actions) {
           //_currentRideIndex++;
             }
 
-            origin = {env_actions[MAP_X], env_actions[MAP_Y], env_actions[MAP_Z], env_actions[DIRECTION]};
-            auto trackPlaceAction = TrackPlaceAction(_currentRideIndex, env_actions[TRACK_TYPE], origin, brakeSpeed, colour, seatRotation, liftHillAndAlternativeState, fromTrackDesign);
+            origin = {map_x, map_y, map_z, direction};
+            auto trackPlaceAction = TrackPlaceAction(_currentRideIndex, trackType, origin, brakeSpeed, colour, seatRotation, liftHillAndAlternativeState, fromTrackDesign);
             auto result_track = GameActions::Execute(&trackPlaceAction);
             GA_ERROR success = result_track->Error;
             if (success == GA_ERROR::OK) {

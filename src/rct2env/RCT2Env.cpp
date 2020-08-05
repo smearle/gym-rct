@@ -173,7 +173,7 @@ int train(int argc, const char **argv) {
     else
     {
         // Without observation normalization
-        policy = Policy(space, base, true);
+        policy = Policy(space, base, false);
     }
     policy->to(device);
     RolloutStorage storage(batch_size, num_envs, env_info->observation_space_shape, space, hidden_size, device);
@@ -217,9 +217,11 @@ int train(int argc, const char **argv) {
             {
  
                 torch::NoGradGuard no_grad;
+                std::cout << "getting action from policy" << std::endl;
                 act_result = policy->act(storage.get_observations()[step],
                                          storage.get_hidden_states()[step],
                                          storage.get_masks()[step]);
+                std::cout << "got action from policy" << std::endl;
             }
             auto actions_tensor = act_result[1].cpu().to(torch::kFloat);
             float *actions_array = actions_tensor.data_ptr<float>();
