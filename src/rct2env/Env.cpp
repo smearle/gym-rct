@@ -12,7 +12,7 @@
 #include <openrct2/platform/platform.h>
 #include <openrct2/ui/UiContext.h>
 #include <openrct2/Cheats.h>
-#include <spdlog/spdlog.h>
+//#include <spdlog/spdlog.h>
 #include "Env.h"
 #include "openrct2/drawing/NewDrawing.h"
 #include <cxxabi.h>
@@ -44,7 +44,7 @@
 using namespace OpenRCT2;
 using namespace OpenRCT2::Audio;
 using namespace OpenRCT2::Ui;
-using namespace cpprl;
+//using namespace cpprl;
 //using namespace rctai;
 
 
@@ -72,14 +72,14 @@ EnvInfo * RCT2Env::GetInfo()
 {
     EnvInfo * env_info = new EnvInfo();
     env_info->observation_space_type = "Box";
-    env_info->action_space_type = "Box";
-    std::vector<long int> observation_space_shape = {n_chan, map_width};
+    env_info->action_space_type = "MultiBinary";
+    std::vector<long int> observation_space_shape = {n_chan, map_width, map_width};
   //Image image = get_observation();
   //std::vector<uint8_t> pixels = image.Pixels;
   //std::vector<long int> observation_space_shape = {pixels.size()};
   //std::vector<long int> observation_space_shape = {100};
     env_info->observation_space_shape = observation_space_shape;
-    std::vector<long int>  action_space_shape = {NUM_ACTIONS};
+    std::vector<long int>  action_space_shape = {agent.n_action_bins};
     env_info->action_space_shape = action_space_shape;
     return env_info;
 }
@@ -95,16 +95,16 @@ void RCT2Env::Init(int argc, const char** argv)
 	gCheatsSandboxMode = true;
     if (runGame == EXITCODE_CONTINUE)
     {
-		spdlog::info("Creating context:");
+//		spdlog::info("Creating context:");
         if (gOpenRCT2Headless)
         {
-			spdlog::info("plain context");
+			//spdlog::info("plain context");
             // Run OpenRCT2 with a plain context
             context = CreateContext();
         }
         else
         {
-			spdlog::info("ui context");
+			//spdlog::info("ui context");
             // Run OpenRCT2 with a UI context
             auto env = to_shared(CreatePlatformEnvironment());
             auto audioContext = to_shared(CreateAudioContext());
@@ -117,7 +117,7 @@ void RCT2Env::Init(int argc, const char** argv)
     // Agent
     map_width = 15;
     int mouse_i;
-    state = torch::zeros((n_chan, map_width));
+    state = torch::zeros((n_chan, map_width, map_width));
     }
     else if (runGame == EXITCODE_FAIL)
     {
@@ -158,7 +158,7 @@ StepResult RCT2Env::Step(std::vector<std::vector<float>> actions) {
     this->context->RunFrame();
     rewards = torch::zeros({1, 1});
     std::vector<float> env_actions_f = actions[0];
-    std::vector<int> env_actions(NUM_ACTIONS);
+    std::vector<int> env_actions(NUM_ACTION_TYPES);
     uint8_t map_x = (int) round(std::abs(env_actions_f[MAP_X]) * map_width) % map_width;
   //env_actions[MAP_X] = round(env_actions_f[MAP_X] * gMapSizeUnits);
     uint8_t map_y = (int) round(std::abs(env_actions_f[MAP_Y]) * map_width) % map_width;

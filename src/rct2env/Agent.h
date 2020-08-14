@@ -1,9 +1,10 @@
 #pragma once
 
-#include "../openrct2/ui/UiContext.h"
-#include "../openrct2-ui/input/KeyboardShortcuts.h"
+//#include "../openrct2/ui/UiContext.h"
+//#include "../openrct2-ui/input/KeyboardShortcuts.h"
 #include "../openrct2/peep/Peep.h"
 #include "../openrct2/world/Sprite.h"
+#include <math.h>
 
 			enum
 			{
@@ -14,7 +15,7 @@
 				DIRECTION,
 				TRACK_TYPE,
 				// size
-				NUM_ACTIONS,
+				NUM_ACTION_TYPES,
 			};
 namespace OpenRCT2
 {
@@ -22,11 +23,11 @@ namespace OpenRCT2
 		private:
 
 
-			int actions [NUM_ACTIONS];
+			int actions [NUM_ACTION_TYPES];
 			int screen_x;
 			int screen_y;
 			int num_acts = 5;
-			int num_keys = SHORTCUT_COUNT + 1;
+//	int num_keys = SHORTCUT_COUNT + 1;
 			int num_mouse = 9;
 			int num_builds = 90;
 			int num_subbuilds = 90;
@@ -41,7 +42,18 @@ namespace OpenRCT2
 			int direction;
 			int track_type;
 			int num_guests;
+			int n_actions_by_type[NUM_ACTION_TYPES] = {num_acts, gMapSizeUnits, gMapSizeUnits, gMapSizeUnits, 4, 256};
+			int count_n_bins ()
+				{
+				int n_action_bins = 0;
+				for (int i = 0; i < NUM_ACTION_TYPES; i++) {
+					n_action_bins += ceil(log2(n_actions_by_type[i]));
+				}
+				n_action_bins = 1;
+				return n_action_bins;
+			}
 		public:
+			int n_action_bins = count_n_bins();
 			int screen_width;
 			int screen_height;
 			Agent() {};

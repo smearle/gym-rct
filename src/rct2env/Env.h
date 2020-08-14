@@ -1,6 +1,10 @@
 #include "Agent.h"
-#include "UiContext.h"
-#include <cpprl/cpprl.h>
+#include <unicode/uconfig.h>
+#include <unicode/platform.h>
+#include <unicode/unistr.h>
+#include <openrct2/Context.h>
+//#include "UiContext.h"
+//#include <cpprl/cpprl.h>
 #include <torch/torch.h>
 
 //namespace rctai
@@ -16,7 +20,7 @@ struct StepResult {
 	torch::Tensor observation = torch::randn({100});
 };
 
-namespace OpenRCT2::Ui
+namespace OpenRCT2
 {
 	template<typename T> static std::shared_ptr<T> to_shared(std::unique_ptr<T>&& src)
 	{

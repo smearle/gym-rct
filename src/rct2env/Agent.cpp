@@ -22,7 +22,7 @@ int* Agent::Step()
         	////screen_y = rand() % screen_height;
         	////screen_y = screen_y - 1;
         		act_i = rand() % num_acts;
-        		key_i = rand() % num_keys;
+        //key_i = rand() % num_keys;
         		mouse_i = rand() % num_mouse;
         		build_i = rand() % num_builds;
         		subbuild_i = rand() % num_subbuilds;
@@ -53,6 +53,5 @@ int* Agent::Step()
                 actions[MAP_Z] = map_z;
                 actions[DIRECTION] = direction;
                 actions[TRACK_TYPE] = track_type;
-
 				return actions;
 			}
