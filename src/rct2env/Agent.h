@@ -5,6 +5,7 @@
 #include "../openrct2/peep/Peep.h"
 #include "../openrct2/world/Sprite.h"
 #include <math.h>
+#include <stdio.h>
 
 			enum
 			{
@@ -42,17 +43,21 @@ namespace OpenRCT2
 			int direction;
 			int track_type;
 			int num_guests;
+
+		public:
 			int n_actions_by_type[NUM_ACTION_TYPES] = {num_acts, gMapSizeUnits, gMapSizeUnits, gMapSizeUnits, 4, 256};
+			int len_by_type[NUM_ACTION_TYPES];
 			int count_n_bins ()
 				{
 				int n_action_bins = 0;
 				for (int i = 0; i < NUM_ACTION_TYPES; i++) {
-					n_action_bins += ceil(log2(n_actions_by_type[i]));
+					int n_action_bins_i = ceil(log2(n_actions_by_type[i]));
+					len_by_type[i] = n_action_bins_i;
+					n_action_bins += n_action_bins_i;			
 				}
-				n_action_bins = 1;
+				printf("%.1i", n_action_bins);
 				return n_action_bins;
 			}
-		public:
 			int n_action_bins = count_n_bins();
 			int screen_width;
 			int screen_height;

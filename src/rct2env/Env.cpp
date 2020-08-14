@@ -149,7 +149,7 @@ torch::Tensor RCT2Env::Observe() {
 }
 
 
-StepResult RCT2Env::Step(std::vector<std::vector<float>> actions) {
+StepResult RCT2Env::Step(std::vector<std::vector<bool>> actions) {
   //spdlog::info("stepping env");
     this->Observe();
   //uint8_t* bits = drawing_engine_get_dpi()->bits;
@@ -157,8 +157,8 @@ StepResult RCT2Env::Step(std::vector<std::vector<float>> actions) {
   //spdlog::info(&bits);
     this->context->RunFrame();
     rewards = torch::zeros({1, 1});
-    std::vector<float> env_actions_f = actions[0];
-    std::vector<int> env_actions(NUM_ACTION_TYPES);
+    std::vector<bool> env_actions_f = actions[0];
+  //std::vector<bool> env_actions(agent.n_action_bins);
     uint8_t map_x = (int) round(std::abs(env_actions_f[MAP_X]) * map_width) % map_width;
   //env_actions[MAP_X] = round(env_actions_f[MAP_X] * gMapSizeUnits);
     uint8_t map_y = (int) round(std::abs(env_actions_f[MAP_Y]) * map_width) % map_width;

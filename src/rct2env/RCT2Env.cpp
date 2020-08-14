@@ -223,9 +223,9 @@ int train(int argc, const char **argv) {
                                          storage.get_masks()[step]);
                 std::cout << "got action from policy" << std::endl;
             }
-            auto actions_tensor = act_result[1].cpu().to(torch::kFloat);
-            float *actions_array = actions_tensor.data_ptr<float>();
-            std::vector<std::vector<float>> actions(num_envs);
+            auto actions_tensor = act_result[1].cpu().to(torch::kBool);
+            bool *actions_array = actions_tensor.data_ptr<bool>();
+            std::vector<std::vector<bool>> actions(num_envs);
           //std::cout << actions_tensor.sizes() << std::endl;
             for (int i = 0; i < num_envs; ++i)
             {

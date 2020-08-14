@@ -56,7 +56,7 @@ namespace OpenRCT2
 	//RCT2Env(const RCT2Env&) = delete;
 			void Init(int argc, const char** argv);
 			EnvInfo * GetInfo();
-			StepResult Step(std::vector<std::vector<float>> actions);
+			StepResult Step(std::vector<std::vector<bool>> actions);
 
 ////		std::vector<std::vector<float>> Observe();
 ////		std::vector<std::vector<float>> Reset();
