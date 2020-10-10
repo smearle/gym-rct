@@ -92,10 +92,10 @@ template<typename T> static std::shared_ptr<T> to_shared(std::unique_ptr<T>&& sr
 }
 
 
-RCT2Env make_env(int argc, const char** argv)
+RCT2Env make_env(int argc, const char** argv, Agent* agent)
 {
     RCT2Env env;
-    env.Init(argc, argv);
+    env.Init(argc, argv, agent);
     return env;
 }
 
@@ -119,7 +119,8 @@ int train(int argc, const char **argv) {
     torch::Device device = use_cuda ? torch::kCUDA : torch::kCPU;
 
     spdlog::info("Launching an RCT2 env");
-    RCT2Env env = make_env(argc, argv); 
+    Agent agent = Agent();
+    RCT2Env env = make_env(argc, argv, &agent); 
 
     auto env_info = env.GetInfo();
   //spdlog::info("Action space: {} - [{}]", env_info->action_space_type,
@@ -217,14 +218,17 @@ int train(int argc, const char **argv) {
             {
  
                 torch::NoGradGuard no_grad;
-                std::cout << "getting action from policy" << std::endl;
+              //std::cout << "getting action from policy" << std::endl;
                 act_result = policy->act(storage.get_observations()[step],
                                          storage.get_hidden_states()[step],
                                          storage.get_masks()[step]);
-                std::cout << "got action from policy" << std::endl;
+              //std::cout << "got action from policy" << std::endl;
             }
+            auto actions_tensor_raw = act_result[1].cpu();
+//          std::cout << actions_tensor_raw << std::endl;
             auto actions_tensor = act_result[1].cpu().to(torch::kBool);
             bool *actions_array = actions_tensor.data_ptr<bool>();
+          //std::cout << actions_array << std::endl;
             std::vector<std::vector<bool>> actions(num_envs);
           //std::cout << actions_tensor.sizes() << std::endl;
             for (int i = 0; i < num_envs; ++i)
@@ -241,7 +245,6 @@ int train(int argc, const char **argv) {
                     }
                 }
             }
-          //std::cout << actions[0].size() << std::endl;
 
           //auto step_param = std::make_shared<StepParam>();
           //step_param->actions = actions;
@@ -250,11 +253,14 @@ int train(int argc, const char **argv) {
           //communicator.send_request(step_request);
 			StepResult step_result = env.Step(actions);
 			torch::Tensor rewards = step_result.rewards;
+	//std::cout << rewards << std::endl;
 			torch::Tensor real_rewards = rewards.clone();
 	//torch::Tensor real_rewards = step_result->rewards;
           //std::vector<float> real_rewards->real_rewards;
           //std::vector<std::vector<bool>> dones_vec;
 			std::vector<std:: vector<bool> > dones_vec = step_result.done;
+		////std::cout << step_result.done << std::endl;
+		////std::cout << dones_vec << std::endl;
 			observation = step_result.observation;
             if (env_info->observation_space_shape.size() > 1)
             {
@@ -344,6 +350,7 @@ int train(int argc, const char **argv) {
             auto run_time = std::chrono::high_resolution_clock::now() - start_time;
             auto run_time_secs = std::chrono::duration_cast<std::chrono::seconds>(run_time);
             auto fps = total_steps / (run_time_secs.count() + 1e-9);
+			std::cout << reward_history << std::endl;
             spdlog::info("---");
             spdlog::info("Update: {}/{}", update, num_updates);
             spdlog::info("Total frames: {}", total_steps);

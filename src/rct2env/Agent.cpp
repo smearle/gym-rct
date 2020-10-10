@@ -4,10 +4,39 @@ using namespace OpenRCT2;
 
 void Agent::Configure(int width, int height)
 {
-				screen_width = width + 1;
-				screen_height = height + 1;
+			printf("Configure, gMapSizeUnits: %i\n", gMapSizeUnits);
+            printf("num_acts: %d\n", num_acts);
+			////screen_width = width + 1;
+			////screen_height = height + 1;
 				
+            this->n_actions_by_type.push_back(num_acts);
+            this->n_actions_by_type.push_back(15);
+            this->n_actions_by_type.push_back(15);
+            this->n_actions_by_type.push_back(255);
+            this->n_actions_by_type.push_back(4);
+            this->n_actions_by_type.push_back(255);
+            this->n_actions_by_type.push_back(255);
+            this->n_actions_by_type.push_back(255);
+			this->n_action_bins = count_n_bins();
 			}
+
+
+int Agent::count_n_bins ()
+{
+//this->len_by_type.assign(NUM_ACTION_TYPES, 0);
+			printf(" gMapSizeUnits: %i\n", gMapSizeUnits);
+			int n_action_bins = 0;
+			for (int i = 0; i < NUM_ACTION_TYPES; i++) {
+				int n_action_bins_i = ceil(log2(n_actions_by_type[i]));
+                printf("n actions by type: %d\n", this->n_actions_by_type[i]);
+				printf("n action bins i=%d: %d\n", i, n_action_bins_i);
+				this->len_by_type.push_back(n_action_bins_i);
+				printf("in vec: %d\n", this->len_by_type.at(i));
+				n_action_bins += n_action_bins_i;			
+			}
+          //this->len_by_type = len_by_type;
+			return n_action_bins;
+}
 
 int* Agent::Step()
 {

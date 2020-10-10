@@ -15,6 +15,9 @@
 				MAP_Z,
 				DIRECTION,
 				TRACK_TYPE,
+				RIDE_TYPE,
+				SUBTYPE,
+//		RIDE_TYPE,
 				// size
 				NUM_ACTION_TYPES,
 			};
@@ -43,22 +46,13 @@ namespace OpenRCT2
 			int direction;
 			int track_type;
 			int num_guests;
+			int count_n_bins();
 
 		public:
-			int n_actions_by_type[NUM_ACTION_TYPES] = {num_acts, gMapSizeUnits, gMapSizeUnits, gMapSizeUnits, 4, 256};
-			int len_by_type[NUM_ACTION_TYPES];
-			int count_n_bins ()
-				{
-				int n_action_bins = 0;
-				for (int i = 0; i < NUM_ACTION_TYPES; i++) {
-					int n_action_bins_i = ceil(log2(n_actions_by_type[i]));
-					len_by_type[i] = n_action_bins_i;
-					n_action_bins += n_action_bins_i;			
-				}
-				printf("%.1i", n_action_bins);
-				return n_action_bins;
-			}
-			int n_action_bins = count_n_bins();
+			std::vector<int> n_actions_by_type;
+			std::vector<uint8_t> len_by_type;
+
+			int n_action_bins;
 			int screen_width;
 			int screen_height;
 			Agent() {};

@@ -32,8 +32,8 @@ namespace OpenRCT2
 		private:
             std::unique_ptr<IContext> context;
           //auto uiContext;
-		    uint8_t map_width;
-			uint8_t map_height = 50;
+		    uint8_t map_width = gMapSizeUnits;
+			uint8_t map_height = 255;
 			// 8 for binary encoding of track type, 4 for directions
 			uint8_t n_chan = 8 + 4;
             int act_i;
@@ -44,7 +44,9 @@ namespace OpenRCT2
 			bool cold_open = false;
 			int cold_open_steps = -1;
 			torch::Tensor  rewards;
-			int max_step = 500;
+			int n_step = 0;
+			int max_step = 200;
+			Agent * agent;
 			std::string observation_space_type;
 			std::vector<long int> observation_space_shape;
 			// representation of game state for agent
@@ -54,7 +56,7 @@ namespace OpenRCT2
         public:
 			RCT2Env();	
 	//RCT2Env(const RCT2Env&) = delete;
-			void Init(int argc, const char** argv);
+			void Init(int argc, const char** argv, Agent* agent);
 			EnvInfo * GetInfo();
 			StepResult Step(std::vector<std::vector<bool>> actions);
 
