@@ -187,40 +187,46 @@ StepResult RCT2Env::Step(std::vector<std::vector<bool>> actions) {
 
     int map_x_bins = agent->len_by_type[MAP_X];
   //printf("map_x_bins : %d\n", map_x_bins);
-    uint8_t map_x_grid = 0;
-    uint j = 0;
+    int map_x_grid = 0;
+    int j = 0;
     for (int i = 0; i < map_x_bins + 2; i++) {
         map_x_grid = map_x_grid + actions[0][i] * pow(2, i);
         j += 1;
     }
 
     uint8_t map_y_bins =  agent->len_by_type[MAP_Y];
-    uint8_t map_y_grid = 0;
+    int map_y_grid = 0;
+    int j_y = j;
     for (int i = 0; i < map_y_bins; i++) {
-        map_y_grid = map_y_grid + actions[0][i + j] * pow(2, i);
+        map_y_grid = map_y_grid + actions[0][i + j_y] * pow(2, i);
         j += 1;
     }
     uint8_t map_z_bins =  agent->len_by_type[MAP_Z];
-    uint8_t map_z = 0;
+    int map_z = 0;
+    int j_z = j;
     for (int i = 0; i < map_z_bins; i++) {
-        map_z = map_z + actions[0][i + j] * pow(2, i);
+        map_z = map_z + actions[0][i + j_z] * pow(2, i);
         j += 1;
     }
     uint8_t track_type_bins =  agent->len_by_type[TRACK_TYPE];
     uint8_t track_type = 0;
+    int j_tt = j;
     for (int i = 0; i < 9; i++) {
-        track_type += actions[0][i] * pow(2, i);
+        track_type += actions[0][i + j_tt] * pow(2, i);
         j += 1;
     }
     int actions_len = map_x_bins + map_y_bins  + map_z_bins + track_type_bins;
     Direction direction = 0;
 
-    uint8_t map_x = map_x_grid;
-    uint8_t map_y = map_y_grid;
+    // some kind of invisible track piece??
+    track_type = track_type % (TRACK_MINI_GOLF_HOLE + 1);
+//  track_type = TRACK_NONE;
+    int map_x = map_x_grid;
+    int map_y = map_y_grid;
     map_x = map_x * COORDS_XY_STEP; 
     map_y = map_y * COORDS_XY_STEP; 
-    map_z = 32;
-  //map_z = map_z * LAND_HEIGHT_STEP; 
+    map_z = 7;
+    map_z = map_z * LAND_HEIGHT_STEP; 
 
     rideType = RIDE_TYPE_CORKSCREW_ROLLER_COASTER;
     rideSubType = 4;
@@ -302,23 +308,24 @@ StepResult RCT2Env::Step(std::vector<std::vector<bool>> actions) {
         GA_ERROR success = result_track->Error;
         if (success == GA_ERROR::OK) {
           //std::cout << "build success, step " << std::to_string(count) << std::endl;
+          //printf("x %d y %d tt %d", map_x, map_y, track_type);
             auto opts = torch::TensorOptions().dtype(torch::kBool);
           //std::cout << actions << std::endl;
-            printf("%d, %d", map_x_grid, map_y_grid);
+          //printf("%d, %d", map_x_grid, map_y_grid);
             actions.resize(12);
-            torch::Tensor build_encoding = torch::from_blob(actions[:, 0, 0].data(), {actions_len}, opts).to(torch::kBool);
-            build_encoding.unsqueeze_(-1);
-            build_encoding.unsqueeze_(-1);
+            torch::Tensor build_encoding = torch::ones({actions_len, 1, 1});
+          //torch::Tensor build_encoding = torch::from_blob(actions[:, 0, 0].data(), {actions_len}, opts).to(torch::kBool);
+          //build_encoding.unsqueeze_(-1);
+          //build_encoding.unsqueeze_(-1);
           //std::cout << build_encoding.sizes() << std::endl;
-          //torch::Tensor build_encoding = torch::ones({12, 1, 1});
           //std::cout << state.slice(0,0,12).slice(1, 3, 4).slice(2, 4, 5) << std::endl;
             state.slice(0, 0, 12).slice(1, map_x_grid-1, map_x_grid).slice(2, map_y_grid-1, map_y_grid) = build_encoding.slice(0, map_x_bins + map_y_bins, map_x_bins + map_y_bins + 12);
           //std::vector<float> reward_deltas = {1};
             torch::Tensor reward_deltas = torch::ones({{1}}) * 100;
             rewards = rewards + reward_deltas;
-            std::cout << state << std::endl;
-            std::cout << build_encoding << std::endl;
-            std::cout << actions << std::endl;
+          //std::cout << state << std::endl;
+          //std::cout << build_encoding << std::endl;
+          //std::cout << actions << std::endl;
         }
           //std::cout << rewards[0][0] << std::endl;
       //rct_string_id ErrorTitle = result_track->ErrorTitle;
