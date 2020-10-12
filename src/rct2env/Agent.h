@@ -30,7 +30,7 @@ namespace OpenRCT2
 			int actions [NUM_ACTION_TYPES];
 			int screen_x;
 			int screen_y;
-			int num_acts = 5;
+			int num_acts = NUM_ACTION_TYPES;
 //	int num_keys = SHORTCUT_COUNT + 1;
 			int num_mouse = 9;
 			int num_builds = 90;

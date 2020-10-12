@@ -455,14 +455,17 @@ bool track_block_get_next_from_zero(
     do
     {
         auto trackElement = tileElement->AsTrack();
-        if (trackElement == nullptr)
+        if (trackElement == nullptr) {
             continue;
+        }
 
-        if (trackElement->GetRideIndex() != ride->id)
+        if (trackElement->GetRideIndex() != ride->id) {
             continue;
+        }
 
-        if (trackElement->GetSequenceIndex() != 0)
+        if (trackElement->GetSequenceIndex() != 0) {
             continue;
+        }
 
         if (tileElement->IsGhost() != isGhost)
             continue;
