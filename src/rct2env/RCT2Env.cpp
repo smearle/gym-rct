@@ -96,8 +96,10 @@ RCT2Env make_env(int argc, const char** argv, Agent* agent)
 {
     RCT2Env env;
     env.Init(argc, argv, agent);
-  //RCT2Env env2;
-  //env2.Init(argc, argv, agent);
+////RCT2Env env2;
+////printf("launching second env");
+////env2.Init(argc, argv, agent);
+////printf("launching second env");
     return env;
 }
 
@@ -116,7 +118,7 @@ int train(int argc, const char **argv) {
     spdlog::set_pattern("%^[%T %7l] %v%$");
 
     at::set_num_threads(1);
-    torch::manual_seed(0);
+    torch::manual_seed(27);
 
     torch::Device device = use_cuda ? torch::kCUDA : torch::kCPU;
 

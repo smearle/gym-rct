@@ -36,8 +36,8 @@ namespace OpenRCT2
 			bool one_build;
             std::unique_ptr<IContext> context;
           //auto uiContext;
-		    uint8_t map_width = gMapSizeUnits;
-			uint8_t map_height = 255;
+		    uint8_t map_width = 16;
+			uint8_t map_height = 16;
 			// 8 for binary encoding of track type, 4 for directions
 			uint8_t n_chan;
             int act_i;
@@ -49,7 +49,8 @@ namespace OpenRCT2
 			int cold_open_steps = -1;
 			torch::Tensor  rewards;
 			int n_step = 0;
-			int max_step = 300;
+			int max_step = 100;
+			int prev_success = false;
 			Agent * agent;
 			std::string observation_space_type;
 			std::vector<long int> observation_space_shape;

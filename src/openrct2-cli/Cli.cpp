@@ -30,6 +30,11 @@ int main(int argc, const char** argv)
         // Run OpenRCT2 with a plain context
         auto context = CreateContext();
         rc = context->RunOpenRCT2(argc, argv);
+        printf("fuck it\n");
+        auto context2 = CreateContext();
+        printf("fuck it\n");
+        rc = context2->RunOpenRCT2(argc, argv);
+        printf("fuck it\n");
     }
     else if (runGame == EXITCODE_FAIL)
     {

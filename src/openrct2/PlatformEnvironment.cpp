@@ -106,8 +106,10 @@ private:
 
 std::unique_ptr<IPlatformEnvironment> OpenRCT2::CreatePlatformEnvironment(DIRBASE_VALUES basePaths)
 {
+    auto plat_env = PlatformEnvironment(basePaths);
     return std::make_unique<PlatformEnvironment>(basePaths);
 }
+
 
 static std::string GetOpenRCT2DirectoryName()
 {

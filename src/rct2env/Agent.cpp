@@ -10,8 +10,8 @@ void Agent::Configure(int width, int height)
 			////screen_height = height + 1;
 				
             this->n_actions_by_type.push_back(num_acts);
-            this->n_actions_by_type.push_back(15);
-            this->n_actions_by_type.push_back(15);
+            this->n_actions_by_type.push_back(width);
+            this->n_actions_by_type.push_back(height);
             this->n_actions_by_type.push_back(50);
             this->n_actions_by_type.push_back(4);
             this->n_actions_by_type.push_back(255);
