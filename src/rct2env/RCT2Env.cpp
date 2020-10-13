@@ -38,7 +38,7 @@ using namespace cpprl;
 // Algorithm hyperparameters
 const std::string algorithm = "PPO";
 const float actor_loss_coef = 1.0;
-const int batch_size = 40;
+const int batch_size = 2;
 const float clip_param = 0.2;
 const float discount_factor = 0.99;
 const float entropy_coef = 1e-3;
@@ -48,7 +48,7 @@ const float learning_rate = 1e-3;
 const int log_interval = 10;
 const int max_frames = 10e+7;
 const int num_epoch = 3;
-const int num_mini_batch = 20;
+const int num_mini_batch = 2;
 const int reward_average_window_size = 10;
 const float reward_clip_value = 100; // Post scaling
 const bool use_gae = true;
@@ -96,6 +96,8 @@ RCT2Env make_env(int argc, const char** argv, Agent* agent)
 {
     RCT2Env env;
     env.Init(argc, argv, agent);
+  //RCT2Env env2;
+  //env2.Init(argc, argv, agent);
     return env;
 }
 
@@ -350,7 +352,7 @@ int train(int argc, const char **argv) {
             auto run_time = std::chrono::high_resolution_clock::now() - start_time;
             auto run_time_secs = std::chrono::duration_cast<std::chrono::seconds>(run_time);
             auto fps = total_steps / (run_time_secs.count() + 1e-9);
-			std::cout << reward_history << std::endl;
+		////std::cout << reward_history << std::endl;
             spdlog::info("---");
             spdlog::info("Update: {}/{}", update, num_updates);
             spdlog::info("Total frames: {}", total_steps);

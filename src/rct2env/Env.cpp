@@ -48,57 +48,6 @@ using namespace OpenRCT2::Ui;
 //using namespace cpprl;
 //using namespace rctai;
 
-static void RideConstructPlacedForwardGameActionCallback(const GameAction* ga, const TrackPlaceActionResult* result)
-{
-    if (result->Error != GA_ERROR::OK)
-    {
-        return;
-    }
-    auto ride = get_ride(_currentRideIndex);
-    if (ride != nullptr)
-    {
-        int32_t trackDirection = _currentTrackPieceDirection;
-        int32_t x = _currentTrackBegin.x;
-        int32_t y = _currentTrackBegin.y;
-        int32_t z = _currentTrackBegin.z;
-      //printf("in callback\n");
-        if (!(trackDirection & 4))
-        {
-            x -= CoordsDirectionDelta[trackDirection].x;
-            y -= CoordsDirectionDelta[trackDirection].y;
-        }
- 
-        CoordsXYE start_track;
-        ride_get_start_of_track(&start_track);
-//      printf("xye %d %d\n", start_track.x, start_track.y);
-        CoordsXYE next_track;
-        if (track_block_get_next(&start_track, &next_track, &z, &trackDirection))
-        {
-            _currentTrackBegin.x = next_track.x;
-            _currentTrackBegin.y = next_track.y;
-            _currentTrackBegin.z = z;
-            _currentTrackPieceDirection = next_track.element->GetDirection();
-            _currentTrackPieceType = next_track.element->AsTrack()->GetTrackType();
-            _currentTrackSelectionFlags = 0;
-            _rideConstructionArrowPulseTime = 0;
-            _rideConstructionState = RIDE_CONSTRUCTION_STATE_SELECTED;
-            ride_select_next_section();
-            printf("xyz %d %d %d\n", next_track.x,next_track.y, z);
-        }
-        else
-        {
-            _rideConstructionState = RIDE_CONSTRUCTION_STATE_0;
-        }
-
-        window_ride_construction_do_station_check();
-        window_ride_construction_do_entrance_exit_check();
-        window_ride_construction_update_active_elements();
-    }
-
-  //window_close_by_class(WC_ERROR);
-  //CloseConstructWindowOnCompletion(ride);
-}
-
 template <typename T>
 std::vector<T> operator+(const std::vector<T>& a, const std::vector<T>& b)
 {
@@ -121,6 +70,7 @@ RCT2Env::RCT2Env()
 EnvInfo * RCT2Env::GetInfo()
 {
     this->agent->Configure(15, 15);
+    n_chan = agent->len_by_type[TRACK_TYPE] + agent->len_by_type[MAP_Z];
     for (int i = 0; i < NUM_ACTION_TYPES; i++) {
         int t = (*this->agent).len_by_type.at(i);
 //      std::cout << t << ' ';
@@ -150,12 +100,13 @@ void RCT2Env::Init(int argc, const char** argv, Agent* agent)
     RegisterBitmapReader();
 	gCheatsIgnoreResearchStatus = true;
 	gCheatsSandboxMode = true;
+  //gOpenRCT2Headless = false; // run with GUI?
     if (runGame == EXITCODE_CONTINUE)
     {
-//		spdlog::info("Creating context:");
+  		spdlog::info("Creating context:");
         if (gOpenRCT2Headless)
         {
-			//spdlog::info("plain context");
+			spdlog::info("plain context");
             // Run OpenRCT2 with a plain context
             context = CreateContext();
         }
@@ -185,6 +136,7 @@ torch::Tensor RCT2Env::Reset() {
     one_build = false;
     auto rideDemolishAction = RideDemolishAction(_currentRideIndex, 0);
     auto rideDemolishResult = GameActions::Execute(&rideDemolishAction);
+    CoordsXYE build_trg;
     count = 0;
     state = torch::zeros({n_chan, map_width, map_width}).to(torch::kBool);
     this->n_step = 0;
@@ -206,6 +158,19 @@ torch::Tensor RCT2Env::Observe() {
   //    std::vector<float>(300));
   //torch::Tensor observation = torch::randn({100});
     return state;
+}
+
+int get_action_from_bin(std::vector<std::vector<bool>> actions, Agent* agent, int ACT_TYPE, int* bin_j) {
+    int n_bins = agent->len_by_type[ACT_TYPE];
+  //printf("map_x_bins : %d\n", map_x_bins);
+    int act_int = 0;
+    for (int i = 0; i < n_bins; i++) {
+        bool act_b = actions[0][i];
+        act_int = act_int + act_b * pow(2, i);
+        *bin_j += 1;
+    }
+    return act_int;
+
 }
 
 StepResult RCT2Env::Step(std::vector<std::vector<bool>> actions) {
@@ -236,62 +201,30 @@ StepResult RCT2Env::Step(std::vector<std::vector<bool>> actions) {
 //  for (int i = 0; i < map_x_bins; i++) {
 //      std::cout << actions.at(i) << ' ';
 //  }
-    
-    int map_x_bins = agent->len_by_type[MAP_X];
-  //printf("map_x_bins : %d\n", map_x_bins);
-    int map_x_grid = 0;
-    int j = 0;
-    for (int i = 0; i < map_x_bins; i++) {
-        bool act_b = actions[0][i];
-        map_x_grid = map_x_grid + act_b * pow(2, i);
-        j += 1;
-    }
-
-    uint8_t map_y_bins =  agent->len_by_type[MAP_Y];
-    int map_y_grid = 0;
-    int j_y = j;
-    for (int i = 0; i < map_y_bins; i++) {
-        bool act_b = actions[0][i + j_y];
-        map_y_grid = map_y_grid + act_b * pow(2, i);
-        j += 1;
-    }
-    uint8_t map_z_bins =  agent->len_by_type[MAP_Z];
-    int map_z = 0;
-    int j_z = j;
-    for (int i = 0; i < map_z_bins; i++) {
-        bool act_b = actions[0][i + j_z];
-        map_z = map_z + actions[0][i + j_z] * pow(2, i);
-        j += 1;
-    }
-    uint8_t track_type_bins =  agent->len_by_type[TRACK_TYPE];
-    uint8_t track_type = 0;
-    int j_tt = j;
-    for (int i = 0; i < track_type_bins; i++) {
-        bool act_b = actions[0][i + j_tt];
-        track_type += act_b * pow(2, i);
-        j += 1;
-    }
-  //int actions_len = map_x_bins + map_y_bins  + map_z_bins + track_type_bins;
-    Direction direction = 0;
-
-    uint8_t track_direction_bins =  agent->len_by_type[DIRECTION];
-    uint8_t track_direction = 0;
-    int j_d = j;
-    for (int i = 0; i < track_direction_bins; i++) {
-        bool act_b = actions[0][i + j_d];
-        track_direction += act_b * pow(2, i);
-        j += 1;
-    }
+    int bin_j = 0;
+    uint8_t map_x_grid = get_action_from_bin(actions, agent, MAP_X, &bin_j);
+    uint8_t map_y_grid = get_action_from_bin(actions, agent, MAP_Y, &bin_j);
+    int j_z = bin_j;
+    int n_z_bins = agent->len_by_type[MAP_Z];
+    int n_tt_bins = agent->len_by_type[TRACK_TYPE];
+    uint8_t map_z_grid = get_action_from_bin(actions, agent, MAP_Z, &bin_j);
+    uint8_t track_type = get_action_from_bin(actions, agent, TRACK_TYPE, &bin_j);
+    uint8_t track_direction = get_action_from_bin(actions, agent, DIRECTION, &bin_j);
 
     // some kind of invisible track piece??
-    track_type = track_type % (TRACK_MINI_GOLF_HOLE + 1);
+  //track_type = track_type % (TRACK_MINI_GOLF_HOLE - 1);
+  //if ((50 <= track_type) && (track_type <= 53)) {
+  //    printf("tt to constrain: %d\n", track_type);
+  //    track_type -= 3;
+  //    printf("tt after constrain: %d\n", track_type);
+  //}
 //  track_type = TRACK_NONE;
-    int map_x = map_x_grid;
-    int map_y = map_y_grid;
+    int32_t map_x = map_x_grid;
+    int32_t map_y = map_y_grid;
     map_x = map_x * COORDS_XY_STEP; 
     map_y = map_y * COORDS_XY_STEP; 
   //map_z = 7;
-    map_z = map_z * LAND_HEIGHT_STEP; 
+    int32_t map_z = map_z_grid * LAND_HEIGHT_STEP; 
 
     rideType = RIDE_TYPE_CORKSCREW_ROLLER_COASTER;
     rideSubType = 4;
@@ -371,21 +304,21 @@ StepResult RCT2Env::Step(std::vector<std::vector<bool>> actions) {
             build_trg = {map_x, map_y, map_z, track_direction};
         }
         else {
+          //build_trg = {build_trg.x, build_trg.y, build_trg.z, build_trg.direction};
+          //build_trg = {map_x, map_y, map_z, track_direction};
           //direction = _currentTrackPieceDirection;
           //track_type = _currentTrackPieceType;
           //printf("%d %d\n", next_pos.x, next_pos.y);
         }
-        if (count == 3) {
-            track_type = TRACK_VERTICAL_LOOP;
-        }
         auto trackPlaceAction = TrackPlaceAction(_currentRideIndex, track_type, build_trg, brakeSpeed, colour, seatRotation, liftHillAndAlternativeState, fromTrackDesign);
-        trackPlaceAction.SetCallback(RideConstructPlacedForwardGameActionCallback);
-         _currentTrackSelectionFlags |= TRACK_SELECTION_FLAG_TRACK_PLACE_ACTION_QUEUED;
+      //trackPlaceAction.SetCallback(RideConstructPlacedForwardGameActionCallback);
+      // _currentTrackSelectionFlags |= TRACK_SELECTION_FLAG_TRACK_PLACE_ACTION_QUEUED;
         auto result_track = GameActions::Execute(&trackPlaceAction);
         GA_ERROR success = result_track->Error;
         direction_int = track_direction;
         next_z = map_z;
         if (success == GA_ERROR::OK) {
+            std::cout << "build success, step " << std::to_string(count) << " x " << build_trg.x << " y " << build_trg.y << " z " << build_trg.z << " track type " << to_string(track_type)<< " direction: " << to_string(build_trg.direction) << std::endl;
             if (one_build) {
                 map_x = build_trg.x;
                 map_y = build_trg.y;
@@ -402,22 +335,28 @@ StepResult RCT2Env::Step(std::vector<std::vector<bool>> actions) {
             Ride* ride = get_ride(_currentRideIndex);
           //int32_t next_direction;
           //int next_z;
-            track_block_get_next_from_zero(map_x, map_y, 0, ride, direction_int, &next_pos, &next_z, &direction_int, false);
+            CoordsXYE first_pos = next_pos;
+            bool first_iteration = false;
+            track_block_get_next_from_zero(map_x, map_y, next_z, ride, direction_int, &next_pos, &next_z, &direction_int, false);
             do {
                 map_x = next_pos.x;
                 map_y = next_pos.y;
                 map_x_grid = map_x / COORDS_XY_STEP;
                 map_y_grid = map_y / COORDS_XY_STEP;
               //map_z = next_z;
-              //printf("new x y z, d: %d, %d, %d, %d\n", next_pos.x, next_pos.y, next_z, direction_int);
+                printf("new x: %d, y: %d, z: %d, d: %d\n", next_pos.x, next_pos.y, next_z, direction_int);
               //printf("map x and y coords: %d %d\n", map_x_grid, map_y_grid);
+                if (!first_iteration && first_pos == next_pos) {
+                    printf("looped!\n");
+                    break;
+                }
             } while (track_block_get_next(&next_pos, &next_pos, &next_z, &direction_int));
           //cout << tile << endl;
 
           //printf("next pos x, y, z, d: %d %d %d %d\n", map_x, map_y, next_z);
           //cout << "direction: " << direction_int << endl;
-          //build_trg = {next_pos.x, next_pos.y, next_z, direction_int};
             build_trg = {next_pos.x, next_pos.y, next_z, direction_int};
+          //build_trg = {map_x, map_y, map_z, track_direction};
 
             bool moveSlowIt = true;
             track_circuit_iterator it = {};
@@ -425,7 +364,7 @@ StepResult RCT2Env::Step(std::vector<std::vector<bool>> actions) {
             track_circuit_iterator slowIt = it;
             while (track_circuit_iterator_next(&it))
             {
-                reward_deltas[0] + 1;
+                reward_deltas[0] = reward_deltas[0] + 1;
                 std::cout << "in circuit iterator, reward: " << reward_deltas[0] << std::endl;
                 if (!track_is_connected_by_shape(it.last.element, it.current.element))
                 {
@@ -464,10 +403,9 @@ StepResult RCT2Env::Step(std::vector<std::vector<bool>> actions) {
           //auto trackPlaceAction_2 = TrackPlaceAction(_currentRideIndex, track_type, build_trg, brakeSpeed, colour, seatRotation, liftHillAndAlternativeState, fromTrackDesign);
           //auto result_track_2 = GameActions::Execute(&trackPlaceAction_2);
 
-            printf("done step\n");
+          //printf("done step\n");
           //int rew_length = ride_get_total_length(ride);
           //printf("ride length: %d\n", rew_length);
-          //std::cout << "build success, step " << std::to_string(count) << std::endl;
           //printf("x %d y %d tt %d", map_x, map_y, track_type);
           //auto opts = torch::TensorOptions().dtype(torch::kInt);
           //std::cout << actions << std::endl;
@@ -484,12 +422,15 @@ StepResult RCT2Env::Step(std::vector<std::vector<bool>> actions) {
             build_encoding.unsqueeze_(-1);
           //std::cout << build_encoding.sizes() << std::endl;
           //std::cout << state.slice(0,0,12).slice(1, 3, 4).slice(2, 4, 5) << std::endl;
-            state.slice(0, 0, 12).slice(1, map_x_grid-1, map_x_grid).slice(2, map_y_grid-1, map_y_grid) = build_encoding.slice(0, j_tt, j_tt + 12);
+            state.slice(0, 0, n_chan).slice(1, map_x_grid-1, map_x_grid).slice(2, map_y_grid-1, map_y_grid) = build_encoding.slice(0, j_z, j_z + n_z_bins + n_tt_bins);
           //std::vector<float> reward_deltas = {1};
             rewards = rewards + reward_deltas;
-            std::cout << state << std::endl;
+          //std::cout << state << std::endl;
           //std::cout << build_encoding << std::endl;
           //std::cout << actions << std::endl;
+        }
+        else { // if failed
+      //printf("failed build on step %d, x: %d, y %d, z: %d, track_type: %d\n", count, build_trg.x, build_trg.y, build_trg.z, track_type);
         }
           //std::cout << rewards[0][0] << std::endl;
       //rct_string_id ErrorTitle = result_track->ErrorTitle;
@@ -502,6 +443,7 @@ StepResult RCT2Env::Step(std::vector<std::vector<bool>> actions) {
         cold_open = false;
     }
     else {  
+        // here is where we would build stuff in advance of agent actions
     }
     count++;
   //if (count == max_step) {

@@ -30,7 +30,7 @@ namespace OpenRCT2
 
 	class RCT2Env {
 		private:
-			int32_t direction_int;
+			int direction_int;
 			int next_z;
 			CoordsXYE* output;
 			bool one_build;
@@ -39,7 +39,7 @@ namespace OpenRCT2
 		    uint8_t map_width = gMapSizeUnits;
 			uint8_t map_height = 255;
 			// 8 for binary encoding of track type, 4 for directions
-			uint8_t n_chan = 12;
+			uint8_t n_chan;
             int act_i;
             int key_i;
             int rideType;
@@ -49,7 +49,7 @@ namespace OpenRCT2
 			int cold_open_steps = -1;
 			torch::Tensor  rewards;
 			int n_step = 0;
-			int max_step = 100;
+			int max_step = 300;
 			Agent * agent;
 			std::string observation_space_type;
 			std::vector<long int> observation_space_shape;
