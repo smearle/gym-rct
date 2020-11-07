@@ -1,5 +1,5 @@
 # gym-rct
-A fork of OpenRCT2, slightly modded to allow for an AI agent to interface with player controls (and other elements of the game's API).
+A fork of OpenRCT2, modded to allow for an AI agent to interface with player controls (and other elements of the game's API).
 
 ## Installation
 
